@@ -1,89 +1,81 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SQUAD IO - MOBILE</title>
+    <title>SQUAD IO - GRAFICOS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; /* Evita zoom en celular */ }
+        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
         
-        /* PANTALLA DE SELECCIÓN */
+        /* PANTALLA CARGA */
+        #loading { position: absolute; top:0; left:0; width:100%; height:100%; background:#111; z-index:20; display:flex; justify-content:center; align-items:center; color:white; font-size:24px;}
+
+        /* PANTALLA SELECCIÓN */
         #selector { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.95); z-index: 10; display: flex; 
+            background: rgba(0,0,0,0.8); z-index: 10; display: none; /* Se oculta al inicio */
             flex-direction: column; justify-content: center; align-items: center; 
         }
         .card-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
         .card { 
-            width: 140px; padding: 10px; background: #222; border: 2px solid #555; 
-            border-radius: 10px; cursor: pointer; text-align: center; margin: 5px;
+            width: 140px; padding: 10px; background: rgba(0,0,0,0.5); border: 2px solid #555; 
+            border-radius: 10px; cursor: pointer; text-align: center; margin: 5px; transition: 0.2s;
         }
-        .card:active { background: #444; border-color: white; }
+        .card:hover { transform: scale(1.05); background: rgba(255,255,255,0.1); }
+        .card img { width: 80px; height: 80px; object-fit: contain; }
         .card.tank { border-color: #3498db; }
         .card.sniper { border-color: #f1c40f; }
         .card.medic { border-color: #2ecc71; }
 
-        /* HUD JUEGO */
+        /* HUD */
         #hud { display: none; position: absolute; width: 100%; height: 100%; pointer-events: none; }
         .boss-bar-cont { position: absolute; top: 10px; left: 10%; width: 80%; height: 20px; background: #333; border: 1px solid #fff; border-radius: 8px; overflow: hidden; }
         .boss-fill { height: 100%; background: #e74c3c; width: 100%; transition: width 0.2s; }
         
-        /* CONTROLES MÓVILES (Solo visibles en pantalla) */
-        #mobile-controls {
-            position: absolute; bottom: 20px; left: 20px; width: 150px; height: 150px;
-            pointer-events: auto; display: none; /* Se activa con JS si es touch */
-        }
-        .dpad-btn {
-            position: absolute; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 10px;
-            font-size: 24px; text-align: center; line-height: 45px; user-select: none;
-        }
-        .dpad-btn:active { background: rgba(255, 255, 255, 0.5); }
-        #btn-up { top: 0; left: 50px; }
-        #btn-down { bottom: 0; left: 50px; }
-        #btn-left { top: 50px; left: 0; }
-        #btn-right { top: 50px; right: 0; }
-
-        #mobile-actions {
-            position: absolute; bottom: 20px; right: 20px; display: none; pointer-events: auto;
-            flex-direction: column; gap: 10px;
-        }
-        .action-btn {
-            width: 70px; height: 70px; background: rgba(255, 0, 0, 0.3); border: 2px solid red;
-            border-radius: 50%; color: white; font-weight: bold; font-size: 12px;
-        }
-        .shop-btn {
-            width: 50px; height: 50px; background: rgba(0, 255, 255, 0.2); border: 1px solid cyan;
-            border-radius: 50%; margin-bottom: 5px; font-size: 10px;
-        }
+        /* CONTROLES MÓVIL */
+        #mobile-controls { position: absolute; bottom: 20px; left: 20px; width: 150px; height: 150px; pointer-events: auto; display: none; }
+        .dpad-btn { position: absolute; width: 50px; height: 50px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; font-size: 24px; text-align: center; line-height: 45px; user-select: none; }
+        #btn-up { top: 0; left: 50px; } #btn-down { bottom: 0; left: 50px; }
+        #btn-left { top: 50px; left: 0; } #btn-right { top: 50px; right: 0; }
+        
+        #mobile-actions { position: absolute; bottom: 20px; right: 20px; display: none; pointer-events: auto; flex-direction: column; gap: 10px; }
+        .action-btn { width: 70px; height: 70px; background: rgba(255,0,0,0.3); border: 2px solid red; border-radius: 50%; color: white; font-weight: bold; }
+        .shop-btn { width: 50px; height: 50px; background: rgba(0,255,255,0.2); border: 1px solid cyan; border-radius: 50%; margin-bottom: 5px; font-size: 10px; color:white; }
 
         canvas { display: block; margin: 0 auto; background: #111; }
     </style>
 </head>
 <body>
 
+    <div id="loading">Cargando Gráficos...</div>
+
     <div id="selector">
-        <h2>ELIGE ROL</h2>
+        <h2>ELIGE TU NAVE</h2>
         <div class="card-container">
-            <div class="card tank" onclick="elegir('tanque')"><h3>TANQUE</h3></div>
-            <div class="card sniper" onclick="elegir('sniper')"><h3>SNIPER</h3></div>
-            <div class="card medic" onclick="elegir('medico')"><h3>MÉDICO</h3></div>
+            <div class="card tank" onclick="elegir('tanque')">
+                <img src="/img/tanque.png" onerror="this.src='https://via.placeholder.com/80/3498db/ffffff?text=T'">
+                <h3>TANQUE</h3>
+            </div>
+            <div class="card sniper" onclick="elegir('sniper')">
+                <img src="/img/sniper.png" onerror="this.src='https://via.placeholder.com/80/f1c40f/000000?text=S'">
+                <h3>SNIPER</h3>
+            </div>
+            <div class="card medic" onclick="elegir('medico')">
+                <img src="/img/medico.png" onerror="this.src='https://via.placeholder.com/80/2ecc71/ffffff?text=M'">
+                <h3>MÉDICO</h3>
+            </div>
         </div>
     </div>
 
     <div id="hud">
         <div class="boss-bar-cont"><div class="boss-fill" id="bossBar"></div></div>
-        
         <div id="mobile-controls">
-            <div id="btn-up" class="dpad-btn">▲</div>
-            <div id="btn-left" class="dpad-btn">◄</div>
-            <div id="btn-right" class="dpad-btn">►</div>
-            <div id="btn-down" class="dpad-btn">▼</div>
+            <div id="btn-up" class="dpad-btn">▲</div> <div id="btn-left" class="dpad-btn">◄</div>
+            <div id="btn-right" class="dpad-btn">►</div> <div id="btn-down" class="dpad-btn">▼</div>
         </div>
-
         <div id="mobile-actions">
-            <button class="shop-btn" onclick="socket.emit('comprar', 'dano')">DAÑO</button>
-            <button class="shop-btn" onclick="socket.emit('comprar', 'speed')">TURBO</button>
-            <button class="action-btn" id="btn-fire">DISPARO</button>
+            <button class="shop-btn" onclick="socket.emit('comprar', 'dano')">PWR</button>
+            <button class="shop-btn" onclick="socket.emit('comprar', 'speed')">SPD</button>
+            <button class="action-btn" id="btn-fire">FIRE</button>
         </div>
     </div>
 
@@ -95,26 +87,59 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Ajustar canvas a pantalla completa
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        // --- SISTEMA DE IMÁGENES ---
+        const sprites = {
+            'tanque': new Image(),
+            'sniper': new Image(),
+            'medico': new Image(),
+            'jefe':   new Image(),
+            'suelo':  new Image()
+        };
+        
+        // Rutas (Asegúrate de tener estos archivos en public/img)
+        sprites['tanque'].src = '/img/tanque.png';
+        sprites['sniper'].src = '/img/sniper.png';
+        sprites['medico'].src = '/img/medico.png';
+        sprites['jefe'].src   = '/img/jefe.png';
+        sprites['suelo'].src  = '/img/suelo.png';
+
+        // Esperar a que carguen
+        let cargados = 0;
+        const totalSprites = Object.keys(sprites).length;
+        for(let key in sprites) {
+            sprites[key].onload = () => {
+                cargados++;
+                if(cargados >= totalSprites) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('selector').style.display = 'flex';
+                }
+            };
+            // Si falla la carga, sigue igual (para no trabar el juego)
+            sprites[key].onerror = () => {
+                console.warn("No se encontró imagen: " + key);
+                cargados++;
+                if(cargados >= totalSprites) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('selector').style.display = 'flex';
+                }
+            };
         }
-        window.addEventListener('resize', resize);
-        resize();
 
         let me = {};
         let jugando = false;
         let teclas = {};
+        let mouseAngle = 0;
 
-        // DETECTAR MÓVIL
+        // CONTROLES
         const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         if(isMobile) {
             document.getElementById('mobile-controls').style.display = 'block';
             document.getElementById('mobile-actions').style.display = 'flex';
         }
 
-        // INPUTS TECLADO (PC)
         window.addEventListener('keydown', e => {
             if(!jugando) return;
             teclas[e.key.toLowerCase()] = true;
@@ -123,56 +148,38 @@
         });
         window.addEventListener('keyup', e => teclas[e.key.toLowerCase()] = false);
 
-        // INPUTS TÁCTILES (MÓVIL)
         function bindTouch(id, key) {
             const btn = document.getElementById(id);
             btn.addEventListener('touchstart', (e) => { e.preventDefault(); teclas[key] = true; });
             btn.addEventListener('touchend', (e) => { e.preventDefault(); teclas[key] = false; });
         }
-        bindTouch('btn-up', 'w');
-        bindTouch('btn-down', 's');
-        bindTouch('btn-left', 'a');
-        bindTouch('btn-right', 'd');
+        bindTouch('btn-up', 'w'); bindTouch('btn-down', 's');
+        bindTouch('btn-left', 'a'); bindTouch('btn-right', 'd');
 
-        // DISPARO TÁCTIL (Auto-aim al centro o al frente)
         const btnFire = document.getElementById('btn-fire');
-        let disparando = false;
-        
-        btnFire.addEventListener('touchstart', (e) => { 
-            e.preventDefault(); 
-            disparando = true; 
-            dispararContinuo();
-        });
-        btnFire.addEventListener('touchend', (e) => { 
-            e.preventDefault(); 
-            disparando = false; 
+        btnFire.addEventListener('touchstart', (e) => { e.preventDefault(); socket.emit('disparar', mouseAngle); });
+
+        canvas.addEventListener('mousemove', e => {
+            if(!me.x) return;
+            // Calcular ángulo para rotar la imagen
+            const r = canvas.getBoundingClientRect();
+            // Posición del mouse relativa al centro de la pantalla (donde está el jugador)
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            mouseAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
         });
 
-        function dispararContinuo() {
-            if(!disparando || !jugando) return;
-            // En móvil disparamos hacia donde miramos o hacia el centro si no nos movemos
-            // Simplificación: Disparar hacia el mouse virtual (centro de pantalla por defecto)
-            socket.emit('disparar', 0); // Dispara a la derecha por defecto (MVP)
-            setTimeout(dispararContinuo, 200);
-        }
-
-        // MOUSE (PC)
         canvas.addEventListener('mousedown', e => {
             if(!jugando) return;
-            const r = canvas.getBoundingClientRect();
-            socket.emit('disparar', Math.atan2(e.clientY - r.top - me.y, e.clientX - r.left - me.x));
+            socket.emit('disparar', mouseAngle);
         });
 
-        // LÓGICA JUEGO
         function elegir(clase) {
             socket.emit('elegirClase', clase);
             document.getElementById('selector').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
             jugando = true;
-            // Pedir pantalla completa en móvil
-            if(document.documentElement.requestFullscreen && isMobile) {
-                document.documentElement.requestFullscreen();
-            }
+            if(document.documentElement.requestFullscreen && isMobile) document.documentElement.requestFullscreen();
         }
 
         socket.on('muerte', () => {
@@ -182,51 +189,75 @@
         });
 
         socket.on('estado', estado => {
-            // UI BOSS
             const bossPct = (estado.jefe.hp / estado.jefe.maxHp) * 100;
             document.getElementById('bossBar').style.width = Math.max(0, bossPct) + "%";
-
             if(estado.jugadores[socket.id]) me = estado.jugadores[socket.id];
 
-            // RENDER - Centrar cámara en el jugador
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#111'; ctx.fillRect(0,0,canvas.width, canvas.height);
+            
+            // Dibujar Fondo (Patrón repetido)
+            if(sprites['suelo'].complete && sprites['suelo'].naturalWidth > 0) {
+                const pat = ctx.createPattern(sprites['suelo'], 'repeat');
+                ctx.fillStyle = pat;
+                // Truco para mover el fondo con la cámara
+                ctx.save();
+                ctx.translate(-me.x + canvas.width/2, -me.y + canvas.height/2);
+                ctx.fillRect(me.x - canvas.width/2, me.y - canvas.height/2, canvas.width, canvas.height);
+                ctx.restore();
+            } else {
+                ctx.fillStyle = '#111'; ctx.fillRect(0,0,canvas.width, canvas.height);
+            }
 
-            // CÁMARA (Truco para que el jugador siempre esté al centro)
+            // CÁMARA
             ctx.save();
             let camX = -me.x + canvas.width/2;
             let camY = -me.y + canvas.height/2;
             ctx.translate(camX, camY);
 
-            // DIBUJAR TODO (con coordenadas relativas a la cámara)
-            // Borde del mapa
+            // Borde Mapa
             ctx.strokeStyle = '#333'; ctx.strokeRect(0,0, 1200, 800);
 
-            // Jefe
+            // JEFE
             const b = estado.jefe;
             if(b.hp > 0){
-                ctx.beginPath(); ctx.arc(b.x, b.y, b.radio, 0, Math.PI*2);
-                ctx.fillStyle = b.color; ctx.fill();
-                ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.stroke();
-            }
-
-            // Jugadores
-            for(let id in estado.jugadores){
-                let p = estado.jugadores[id];
-                if(!p.clase) continue;
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.radio, 0, Math.PI*2);
-                ctx.fillStyle = p.color; ctx.fill();
-                // Barra Vida
-                ctx.fillStyle = '#f00'; ctx.fillRect(p.x-15, p.y-30, 30, 5);
-                ctx.fillStyle = '#0f0'; ctx.fillRect(p.x-15, p.y-30, (Math.max(0, p.hp)/p.maxHp)*30, 5);
-                
-                // Nombre (si soy yo)
-                if(id === socket.id) {
-                    ctx.fillStyle = "white"; ctx.font = "12px Arial"; ctx.fillText("YO", p.x-10, p.y-40);
+                if(sprites['jefe'].complete && sprites['jefe'].naturalWidth > 0) {
+                    ctx.drawImage(sprites['jefe'], b.x - b.radio, b.y - b.radio, b.radio*2, b.radio*2);
+                } else {
+                    // Fallback si no hay imagen
+                    ctx.beginPath(); ctx.arc(b.x, b.y, b.radio, 0, Math.PI*2);
+                    ctx.fillStyle = b.color; ctx.fill();
                 }
             }
 
-            // Balas
+            // JUGADORES
+            for(let id in estado.jugadores){
+                let p = estado.jugadores[id];
+                if(!p.clase) continue;
+                
+                // Dibujar Imagen Rotada
+                let img = sprites[p.clase];
+                if(img && img.complete && img.naturalWidth > 0) {
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    // Si es el jugador local, rotar hacia el mouse. Si es otro, no sabemos su mouse (podemos rotar hacia movimiento en v2)
+                    if(id === socket.id) ctx.rotate(mouseAngle); 
+                    ctx.drawImage(img, -p.radio, -p.radio, p.radio*2, p.radio*2);
+                    ctx.restore();
+                } else {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.radio, 0, Math.PI*2);
+                    ctx.fillStyle = p.color; ctx.fill();
+                }
+
+                // Vida
+                ctx.fillStyle = '#f00'; ctx.fillRect(p.x-15, p.y-30, 30, 5);
+                ctx.fillStyle = '#0f0'; ctx.fillRect(p.x-15, p.y-30, (Math.max(0, p.hp)/p.maxHp)*30, 5);
+                
+                if(id === socket.id) {
+                    ctx.fillStyle = "white"; ctx.font = "12px Arial"; ctx.fillText("TÚ", p.x-10, p.y-40);
+                }
+            }
+
+            // BALAS
             estado.balas.forEach(ba => {
                 ctx.beginPath(); ctx.arc(ba.x, ba.y, ba.radio, 0, Math.PI*2);
                 ctx.fillStyle = ba.color; ctx.fill();
@@ -234,7 +265,6 @@
 
             ctx.restore();
 
-            // Movimiento
             if(jugando && me.clase) {
                 let v = me.velocidad;
                 if(teclas['w']) socket.emit('movimiento', {x: me.x, y: me.y - v});

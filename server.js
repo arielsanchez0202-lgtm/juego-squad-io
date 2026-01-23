@@ -10,9 +10,9 @@ const MAPA_H = 800;
 
 // --- CONFIGURACIÓN DE CLASES ---
 const CLASES = {
-    'tanque': { hp: 300, velocidad: 3,  dano: 8,  radio: 30, color: '#3498db', reload: 15 }, // Lento y duro
-    'sniper': { hp: 80,  velocidad: 6,  dano: 40, radio: 15, color: '#f1c40f', reload: 40 }, // Rápido y letal
-    'medico': { hp: 120, velocidad: 5,  dano: 10, radio: 20, color: '#2ecc71', reload: 10 }  // Cura rápido
+    'tanque': { hp: 300, velocidad: 3,  dano: 8,  radio: 30, color: '#3498db', reload: 15 },
+    'sniper': { hp: 80,  velocidad: 6,  dano: 40, radio: 15, color: '#f1c40f', reload: 40 },
+    'medico': { hp: 120, velocidad: 5,  dano: 10, radio: 20, color: '#2ecc71', reload: 10 } 
 };
 
 const TIENDA = {
@@ -20,11 +20,11 @@ const TIENDA = {
     'speed':  { costo: 100, nombre: "Motor (+1)" }
 };
 
-// --- ENTIDADES ---
 class Entidad {
     constructor(x, y, radio, color) {
         this.x = x; this.y = y; this.radio = radio; this.color = color;
         this.borrar = false;
+        this.hitTimer = 0;
     }
 }
 
@@ -32,13 +32,13 @@ class Jugador extends Entidad {
     constructor(id) {
         super(Math.random() * 200, Math.random() * 200, 20, 'white');
         this.id = id;
-        this.clase = null; // Aún no elige
+        this.clase = null;
         this.score = 0;
         this.hp = 100;
         this.maxHp = 100;
-        this.velocidad = 0; // No se mueve hasta elegir
+        this.velocidad = 0;
         this.dano = 0;
-        this.cooldown = 0; // Tiempo entre disparos
+        this.cooldown = 0;
         this.maxCooldown = 0;
     }
 
@@ -63,14 +63,16 @@ class Bala extends Entidad {
         this.vy = Math.sin(angulo) * 12;
         this.idDueno = idDueno;
         this.dano = dano;
-        this.esSanadora = esSanadora; // ¿Cura?
+        this.esSanadora = esSanadora;
         this.distancia = 0;
     }
 
     mover() {
         this.x += this.vx; this.y += this.vy;
         this.distancia += 12;
-        if (this.distancia > 1200) this.borrar = true;
+        if (this.distancia > 1200 || this.x < 0 || this.x > MAPA_W || this.y < 0 || this.y > MAPA_H) {
+            this.borrar = true;
+        }
     }
 }
 
@@ -84,13 +86,12 @@ class Jefe extends Entidad {
     }
 
     pensar(jugadores) {
-        // Buscar objetivo más cercano que ya haya elegido clase
         let target = null;
         let minD = 9999;
         
         for(let id in jugadores){
             let j = jugadores[id];
-            if(!j.clase) continue; // Ignorar fantasmas
+            if(!j.clase) continue;
             let d = Math.sqrt((j.x-this.x)**2 + (j.y-this.y)**2);
             if(d < minD){ minD = d; target = j; }
         }
@@ -99,11 +100,13 @@ class Jefe extends Entidad {
             let ang = Math.atan2(target.y - this.y, target.x - this.x);
             this.x += Math.cos(ang) * this.velocidad;
             this.y += Math.sin(ang) * this.velocidad;
+
+            // Evitar que el jefe salga del mapa
+            this.x = Math.max(this.radio, Math.min(MAPA_W - this.radio, this.x));
+            this.y = Math.max(this.radio, Math.min(MAPA_H - this.radio, this.y));
         }
 
-        // Ataques
         this.tiempo++;
-        // Espiral infernal
         if(this.tiempo % 120 === 0) {
             for(let i=0; i<8; i++) {
                 balas.push(new Bala(this.x, this.y, (Math.PI*2/8)*i + this.tiempo, 'BOSS', 'red', 20, false));
@@ -119,7 +122,6 @@ let jefe = new Jefe();
 io.on('connection', (socket) => {
     jugadores[socket.id] = new Jugador(socket.id);
 
-    // ELEGIR CLASE
     socket.on('elegirClase', (tipo) => {
         if(jugadores[socket.id]) jugadores[socket.id].asignarClase(tipo);
     });
@@ -135,7 +137,11 @@ io.on('connection', (socket) => {
 
     socket.on('movimiento', (d) => {
         let j = jugadores[socket.id];
-        if(j && j.clase) { j.x = d.x; j.y = d.y; }
+        if(j && j.clase) { 
+            // NUEVO: Limitar movimiento dentro del mapa (Colisión con los bordes)
+            j.x = Math.max(j.radio, Math.min(MAPA_W - j.radio, d.x));
+            j.y = Math.max(j.radio, Math.min(MAPA_H - j.radio, d.y));
+        }
     });
 
     socket.on('disparar', (angulo) => {
@@ -145,7 +151,7 @@ io.on('connection', (socket) => {
             let colorBala = esSanadora ? '#2ecc71' : 'yellow';
             
             balas.push(new Bala(j.x, j.y, angulo, socket.id, colorBala, j.dano, esSanadora));
-            j.cooldown = j.maxCooldown; // Reiniciar recarga
+            j.cooldown = j.maxCooldown; 
         }
     });
 
@@ -153,14 +159,12 @@ io.on('connection', (socket) => {
 });
 
 setInterval(() => {
-    // Cooldowns de disparo
     for(let id in jugadores) {
         if(jugadores[id].cooldown > 0) jugadores[id].cooldown--;
     }
 
     if(jefe.hp > 0) jefe.pensar(jugadores);
     else {
-        // JEFE MUERTO
         io.emit('mensajeGlobal', "¡VICTORIA! RONDA COMPLETADA");
         for(let id in jugadores) jugadores[id].score += 500;
         jefe.maxHp *= 1.2; jefe.hp = jefe.maxHp; jefe.velocidad += 0.2;
@@ -168,12 +172,10 @@ setInterval(() => {
         balas = [];
     }
 
-    // Físicas
     for (let i = balas.length - 1; i >= 0; i--) {
         let b = balas[i];
         b.mover();
 
-        // BALAS JEFE
         if(b.idDueno === 'BOSS'){
             for(let id in jugadores){
                 let j = jugadores[id];
@@ -184,24 +186,19 @@ setInterval(() => {
                 }
             }
         } 
-        // BALAS JUGADOR
         else {
-            // Impacto contra Jefe
             if(Math.sqrt((b.x-jefe.x)**2 + (b.y-jefe.y)**2) < jefe.radio + 10){
                 jefe.hp -= b.dano;
                 b.borrar = true;
                 if(jugadores[b.idDueno]) jugadores[b.idDueno].score += 5;
             }
             
-            // Impacto Bala Sanadora -> Aliado
             if(b.esSanadora) {
                 for(let id in jugadores){
                     let j = jugadores[id];
-                    // Si choca con un aliado (que no sea yo mismo)
                     if(id !== b.idDueno && Math.sqrt((b.x-j.x)**2 + (b.y-j.y)**2) < j.radio + 10){
-                        j.hp = Math.min(j.hp + b.dano, j.maxHp); // Curar
+                        j.hp = Math.min(j.hp + b.dano, j.maxHp); 
                         b.borrar = true;
-                        // Ganar puntos por curar (¡Incentivo!)
                         if(jugadores[b.idDueno]) jugadores[b.idDueno].score += 10;
                     }
                 }
@@ -210,12 +207,11 @@ setInterval(() => {
         if(b.borrar) balas.splice(i, 1);
     }
 
-    // Respawn
     for(let id in jugadores){
         if(jugadores[id].clase && jugadores[id].hp <= 0){
-            jugadores[id].clase = null; // Volver a elegir clase
+            jugadores[id].clase = null; 
             jugadores[id].score = Math.floor(jugadores[id].score / 2);
-            jugadores[id].x = -1000; // Esconder
+            jugadores[id].x = -1000; 
             io.to(id).emit('muerte', "HAS MUERTO");
         }
     }

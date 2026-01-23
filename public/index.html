@@ -6,13 +6,11 @@
     <style>
         body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
         
-        /* PANTALLA CARGA */
         #loading { position: absolute; top:0; left:0; width:100%; height:100%; background:#111; z-index:20; display:flex; justify-content:center; align-items:center; color:white; font-size:24px;}
 
-        /* PANTALLA SELECCIÓN */
         #selector { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.8); z-index: 10; display: none; /* Se oculta al inicio */
+            background: rgba(0,0,0,0.8); z-index: 10; display: none;
             flex-direction: column; justify-content: center; align-items: center; 
         }
         .card-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
@@ -26,12 +24,30 @@
         .card.sniper { border-color: #f1c40f; }
         .card.medic { border-color: #2ecc71; }
 
-        /* HUD */
         #hud { display: none; position: absolute; width: 100%; height: 100%; pointer-events: none; }
         .boss-bar-cont { position: absolute; top: 10px; left: 10%; width: 80%; height: 20px; background: #333; border: 1px solid #fff; border-radius: 8px; overflow: hidden; }
         .boss-fill { height: 100%; background: #e74c3c; width: 100%; transition: width 0.2s; }
         
-        /* CONTROLES MÓVIL */
+        /* NUEVO: ESTILOS DEL MINIMAPA */
+        #minimap {
+            position: absolute;
+            top: 40px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #555;
+            border-radius: 5px;
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        #btn-autofire {
+            display: none; position: absolute; bottom: 100px; right: 20px; 
+            background: rgba(52, 152, 219, 0.5); border: 2px solid #3498db; 
+            border-radius: 50%; width: 70px; height: 70px; font-weight: bold;
+            color: white; font-size: 12px; pointer-events: auto; z-index: 5;
+            transition: 0.1s;
+        }
+
         #mobile-controls { position: absolute; bottom: 20px; left: 20px; width: 150px; height: 150px; pointer-events: auto; display: none; }
         .dpad-btn { position: absolute; width: 50px; height: 50px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; font-size: 24px; text-align: center; line-height: 45px; user-select: none; }
         #btn-up { top: 0; left: 50px; } #btn-down { bottom: 0; left: 50px; }
@@ -41,7 +57,7 @@
         .action-btn { width: 70px; height: 70px; background: rgba(255,0,0,0.3); border: 2px solid red; border-radius: 50%; color: white; font-weight: bold; }
         .shop-btn { width: 50px; height: 50px; background: rgba(0,255,255,0.2); border: 1px solid cyan; border-radius: 50%; margin-bottom: 5px; font-size: 10px; color:white; }
 
-        canvas { display: block; margin: 0 auto; background: #111; }
+        canvas#gameCanvas { display: block; margin: 0 auto; background: #050505; }
     </style>
 </head>
 <body>
@@ -68,6 +84,11 @@
 
     <div id="hud">
         <div class="boss-bar-cont"><div class="boss-fill" id="bossBar"></div></div>
+        
+        <canvas id="minimap" width="150" height="100"></canvas>
+
+        <button id="btn-autofire">AUTO<br>OFF<br>(E)</button>
+
         <div id="mobile-controls">
             <div id="btn-up" class="dpad-btn">▲</div> <div id="btn-left" class="dpad-btn">◄</div>
             <div id="btn-right" class="dpad-btn">►</div> <div id="btn-down" class="dpad-btn">▼</div>
@@ -87,10 +108,17 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
+        // Contexto del minimapa
+        const miniCanvas = document.getElementById('minimap');
+        const miniCtx = miniCanvas.getContext('2d');
+
+        // Tamaño del mapa (debe coincidir con server.js)
+        const MAPA_W = 1200;
+        const MAPA_H = 800;
+
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        // --- SISTEMA DE IMÁGENES ---
         const sprites = {
             'tanque': new Image(),
             'sniper': new Image(),
@@ -99,33 +127,24 @@
             'suelo':  new Image()
         };
         
-        // Rutas (Asegúrate de tener estos archivos en public/img)
         sprites['tanque'].src = '/img/tanque.png';
         sprites['sniper'].src = '/img/sniper.png';
         sprites['medico'].src = '/img/medico.png';
         sprites['jefe'].src   = '/img/jefe.png';
         sprites['suelo'].src  = '/img/suelo.png';
 
-        // Esperar a que carguen
         let cargados = 0;
         const totalSprites = Object.keys(sprites).length;
         for(let key in sprites) {
-            sprites[key].onload = () => {
-                cargados++;
-                if(cargados >= totalSprites) {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('selector').style.display = 'flex';
-                }
-            };
-            // Si falla la carga, sigue igual (para no trabar el juego)
-            sprites[key].onerror = () => {
-                console.warn("No se encontró imagen: " + key);
-                cargados++;
-                if(cargados >= totalSprites) {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('selector').style.display = 'flex';
-                }
-            };
+            sprites[key].onload = () => { cargados++; checkLoad(); };
+            sprites[key].onerror = () => { console.warn("Falta imagen: " + key); cargados++; checkLoad(); };
+        }
+
+        function checkLoad() {
+            if(cargados >= totalSprites) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('selector').style.display = 'flex';
+            }
         }
 
         let me = {};
@@ -133,7 +152,24 @@
         let teclas = {};
         let mouseAngle = 0;
 
-        // CONTROLES
+        let autoFireEnabled = false;
+        const btnAutoFire = document.getElementById('btn-autofire');
+
+        function toggleAutoFire() {
+            autoFireEnabled = !autoFireEnabled;
+            if (autoFireEnabled) {
+                btnAutoFire.style.background = 'rgba(46, 204, 113, 0.6)'; 
+                btnAutoFire.style.borderColor = '#2ecc71';
+                btnAutoFire.innerHTML = "AUTO<br>ON<br>(E)";
+            } else {
+                btnAutoFire.style.background = 'rgba(52, 152, 219, 0.5)'; 
+                btnAutoFire.style.borderColor = '#3498db';
+                btnAutoFire.innerHTML = "AUTO<br>OFF<br>(E)";
+            }
+        }
+
+        btnAutoFire.addEventListener('pointerdown', (e) => { e.preventDefault(); toggleAutoFire(); });
+
         const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         if(isMobile) {
             document.getElementById('mobile-controls').style.display = 'block';
@@ -142,9 +178,11 @@
 
         window.addEventListener('keydown', e => {
             if(!jugando) return;
-            teclas[e.key.toLowerCase()] = true;
-            if(e.key === '1') socket.emit('comprar', 'dano');
-            if(e.key === '2') socket.emit('comprar', 'speed');
+            const key = e.key.toLowerCase();
+            teclas[key] = true;
+            if(key === '1') socket.emit('comprar', 'dano');
+            if(key === '2') socket.emit('comprar', 'speed');
+            if(key === 'e' && me.clase) toggleAutoFire(); 
         });
         window.addEventListener('keyup', e => teclas[e.key.toLowerCase()] = false);
 
@@ -161,9 +199,6 @@
 
         canvas.addEventListener('mousemove', e => {
             if(!me.x) return;
-            // Calcular ángulo para rotar la imagen
-            const r = canvas.getBoundingClientRect();
-            // Posición del mouse relativa al centro de la pantalla (donde está el jugador)
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
             mouseAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
@@ -179,6 +214,12 @@
             document.getElementById('selector').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
             jugando = true;
+            btnAutoFire.style.display = 'block';
+            autoFireEnabled = false; 
+            btnAutoFire.style.background = 'rgba(52, 152, 219, 0.5)';
+            btnAutoFire.style.borderColor = '#3498db';
+            btnAutoFire.innerHTML = "AUTO<br>OFF<br>(E)";
+
             if(document.documentElement.requestFullscreen && isMobile) document.documentElement.requestFullscreen();
         }
 
@@ -193,29 +234,26 @@
             document.getElementById('bossBar').style.width = Math.max(0, bossPct) + "%";
             if(estado.jugadores[socket.id]) me = estado.jugadores[socket.id];
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // 1. Limpiar pantalla completa (Fondo del abismo / oscuro)
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Dibujar Fondo (Patrón repetido)
-            if(sprites['suelo'].complete && sprites['suelo'].naturalWidth > 0) {
-                const pat = ctx.createPattern(sprites['suelo'], 'repeat');
-                ctx.fillStyle = pat;
-                // Truco para mover el fondo con la cámara
-                ctx.save();
-                ctx.translate(-me.x + canvas.width/2, -me.y + canvas.height/2);
-                ctx.fillRect(me.x - canvas.width/2, me.y - canvas.height/2, canvas.width, canvas.height);
-                ctx.restore();
-            } else {
-                ctx.fillStyle = '#111'; ctx.fillRect(0,0,canvas.width, canvas.height);
-            }
-
-            // CÁMARA
             ctx.save();
             let camX = -me.x + canvas.width/2;
             let camY = -me.y + canvas.height/2;
             ctx.translate(camX, camY);
 
-            // Borde Mapa
-            ctx.strokeStyle = '#333'; ctx.strokeRect(0,0, 1200, 800);
+            // 2. Dibujar el mapa solo en los límites de MAPA_W x MAPA_H
+            if(sprites['suelo'].complete && sprites['suelo'].naturalWidth > 0) {
+                const pat = ctx.createPattern(sprites['suelo'], 'repeat');
+                ctx.fillStyle = pat;
+                ctx.fillRect(0, 0, MAPA_W, MAPA_H);
+            } else {
+                ctx.fillStyle = '#222'; 
+                ctx.fillRect(0, 0, MAPA_W, MAPA_H);
+            }
+
+            // (SE ELIMINÓ EL STROKE RECTANGULO FEO DE AQUÍ)
 
             // JEFE
             const b = estado.jefe;
@@ -223,7 +261,6 @@
                 if(sprites['jefe'].complete && sprites['jefe'].naturalWidth > 0) {
                     ctx.drawImage(sprites['jefe'], b.x - b.radio, b.y - b.radio, b.radio*2, b.radio*2);
                 } else {
-                    // Fallback si no hay imagen
                     ctx.beginPath(); ctx.arc(b.x, b.y, b.radio, 0, Math.PI*2);
                     ctx.fillStyle = b.color; ctx.fill();
                 }
@@ -234,12 +271,10 @@
                 let p = estado.jugadores[id];
                 if(!p.clase) continue;
                 
-                // Dibujar Imagen Rotada
                 let img = sprites[p.clase];
                 if(img && img.complete && img.naturalWidth > 0) {
                     ctx.save();
                     ctx.translate(p.x, p.y);
-                    // Si es el jugador local, rotar hacia el mouse. Si es otro, no sabemos su mouse (podemos rotar hacia movimiento en v2)
                     if(id === socket.id) ctx.rotate(mouseAngle); 
                     ctx.drawImage(img, -p.radio, -p.radio, p.radio*2, p.radio*2);
                     ctx.restore();
@@ -248,7 +283,6 @@
                     ctx.fillStyle = p.color; ctx.fill();
                 }
 
-                // Vida
                 ctx.fillStyle = '#f00'; ctx.fillRect(p.x-15, p.y-30, 30, 5);
                 ctx.fillStyle = '#0f0'; ctx.fillRect(p.x-15, p.y-30, (Math.max(0, p.hp)/p.maxHp)*30, 5);
                 
@@ -265,12 +299,51 @@
 
             ctx.restore();
 
+            // --- ACTUALIZAR MINIMAPA ---
+            miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+            let scaleX = miniCanvas.width / MAPA_W;
+            let scaleY = miniCanvas.height / MAPA_H;
+
+            // Dibujar Jefe en minimapa
+            if(b.hp > 0) {
+                miniCtx.fillStyle = 'red';
+                miniCtx.beginPath();
+                miniCtx.arc(b.x * scaleX, b.y * scaleY, 5, 0, Math.PI*2);
+                miniCtx.fill();
+            }
+
+            // Dibujar Jugadores en minimapa
+            for(let id in estado.jugadores){
+                let p = estado.jugadores[id];
+                if(!p.clase) continue;
+                miniCtx.fillStyle = (id === socket.id) ? 'white' : 'lime';
+                miniCtx.beginPath();
+                miniCtx.arc(p.x * scaleX, p.y * scaleY, 3, 0, Math.PI*2);
+                miniCtx.fill();
+            }
+
+            // MOVIMIENTO
             if(jugando && me.clase) {
                 let v = me.velocidad;
-                if(teclas['w']) socket.emit('movimiento', {x: me.x, y: me.y - v});
-                if(teclas['s']) socket.emit('movimiento', {x: me.x, y: me.y + v});
-                if(teclas['a']) socket.emit('movimiento', {x: me.x - v, y: me.y});
-                if(teclas['d']) socket.emit('movimiento', {x: me.x + v, y: me.y});
+                let nextX = me.x;
+                let nextY = me.y;
+
+                if(teclas['w']) nextY -= v;
+                if(teclas['s']) nextY += v;
+                if(teclas['a']) nextX -= v;
+                if(teclas['d']) nextX += v;
+
+                // Restricción visual de movimiento en el cliente (evita tirones)
+                nextX = Math.max(me.radio, Math.min(MAPA_W - me.radio, nextX));
+                nextY = Math.max(me.radio, Math.min(MAPA_H - me.radio, nextY));
+
+                if(nextX !== me.x || nextY !== me.y) {
+                    socket.emit('movimiento', {x: nextX, y: nextY});
+                }
+
+                if(autoFireEnabled) {
+                    socket.emit('disparar', mouseAngle);
+                }
             }
         });
     </script>

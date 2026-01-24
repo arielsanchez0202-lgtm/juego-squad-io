@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SQUAD IO - GRAFICOS</title>
+    <title>SQUAD IO - OPTIMIZADO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
@@ -28,7 +28,6 @@
         .boss-bar-cont { position: absolute; top: 10px; left: 10%; width: 80%; height: 20px; background: #333; border: 1px solid #fff; border-radius: 8px; overflow: hidden; }
         .boss-fill { height: 100%; background: #e74c3c; width: 100%; transition: width 0.2s; }
         
-        /* NUEVO: ESTILOS DEL MINIMAPA */
         #minimap {
             position: absolute;
             top: 40px;
@@ -108,11 +107,9 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Contexto del minimapa
         const miniCanvas = document.getElementById('minimap');
         const miniCtx = miniCanvas.getContext('2d');
 
-        // Tamaño del mapa (debe coincidir con server.js)
         const MAPA_W = 1200;
         const MAPA_H = 800;
 
@@ -227,104 +224,39 @@
             jugando = false;
             document.getElementById('selector').style.display = 'flex';
             document.getElementById('hud').style.display = 'none';
+            teclas = {}; // Resetear teclas al morir
         });
 
+        // --- SISTEMA OPTIMIZADO DE RED Y RENDERIZADO ---
+        let serverState = { jugadores: {}, balas: [], jefe: {hp: 0, maxHp: 1} };
+        let localEntities = {}; // Guardará posiciones interpoladas
+
+        // 1. Recepción de datos puros (Ya no dibuja)
         socket.on('estado', estado => {
-            const bossPct = (estado.jefe.hp / estado.jefe.maxHp) * 100;
-            document.getElementById('bossBar').style.width = Math.max(0, bossPct) + "%";
-            if(estado.jugadores[socket.id]) me = estado.jugadores[socket.id];
-
-            // 1. Limpiar pantalla completa (Fondo del abismo / oscuro)
-            ctx.fillStyle = '#050505';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.save();
-            let camX = -me.x + canvas.width/2;
-            let camY = -me.y + canvas.height/2;
-            ctx.translate(camX, camY);
-
-            // 2. Dibujar el mapa solo en los límites de MAPA_W x MAPA_H
-            if(sprites['suelo'].complete && sprites['suelo'].naturalWidth > 0) {
-                const pat = ctx.createPattern(sprites['suelo'], 'repeat');
-                ctx.fillStyle = pat;
-                ctx.fillRect(0, 0, MAPA_W, MAPA_H);
-            } else {
-                ctx.fillStyle = '#222'; 
-                ctx.fillRect(0, 0, MAPA_W, MAPA_H);
+            serverState = estado;
+            if(estado.jugadores[socket.id]) {
+                let serverMe = estado.jugadores[socket.id];
+                me.hp = serverMe.hp;
+                me.maxHp = serverMe.maxHp;
+                me.score = serverMe.score;
+                me.clase = serverMe.clase;
+                me.radio = serverMe.radio;
+                me.velocidad = serverMe.velocidad;
+                // Asignar posición del server solo si es mi primer spawn
+                if (!me.x && serverMe.x) { me.x = serverMe.x; me.y = serverMe.y; }
             }
+        });
 
-            // (SE ELIMINÓ EL STROKE RECTANGULO FEO DE AQUÍ)
+        // Función matemática para suavizar movimiento
+        function lerp(start, end, amt) {
+            return (1 - amt) * start + amt * end;
+        }
 
-            // JEFE
-            const b = estado.jefe;
-            if(b.hp > 0){
-                if(sprites['jefe'].complete && sprites['jefe'].naturalWidth > 0) {
-                    ctx.drawImage(sprites['jefe'], b.x - b.radio, b.y - b.radio, b.radio*2, b.radio*2);
-                } else {
-                    ctx.beginPath(); ctx.arc(b.x, b.y, b.radio, 0, Math.PI*2);
-                    ctx.fillStyle = b.color; ctx.fill();
-                }
-            }
-
-            // JUGADORES
-            for(let id in estado.jugadores){
-                let p = estado.jugadores[id];
-                if(!p.clase) continue;
-                
-                let img = sprites[p.clase];
-                if(img && img.complete && img.naturalWidth > 0) {
-                    ctx.save();
-                    ctx.translate(p.x, p.y);
-                    if(id === socket.id) ctx.rotate(mouseAngle); 
-                    ctx.drawImage(img, -p.radio, -p.radio, p.radio*2, p.radio*2);
-                    ctx.restore();
-                } else {
-                    ctx.beginPath(); ctx.arc(p.x, p.y, p.radio, 0, Math.PI*2);
-                    ctx.fillStyle = p.color; ctx.fill();
-                }
-
-                ctx.fillStyle = '#f00'; ctx.fillRect(p.x-15, p.y-30, 30, 5);
-                ctx.fillStyle = '#0f0'; ctx.fillRect(p.x-15, p.y-30, (Math.max(0, p.hp)/p.maxHp)*30, 5);
-                
-                if(id === socket.id) {
-                    ctx.fillStyle = "white"; ctx.font = "12px Arial"; ctx.fillText("TÚ", p.x-10, p.y-40);
-                }
-            }
-
-            // BALAS
-            estado.balas.forEach(ba => {
-                ctx.beginPath(); ctx.arc(ba.x, ba.y, ba.radio, 0, Math.PI*2);
-                ctx.fillStyle = ba.color; ctx.fill();
-            });
-
-            ctx.restore();
-
-            // --- ACTUALIZAR MINIMAPA ---
-            miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
-            let scaleX = miniCanvas.width / MAPA_W;
-            let scaleY = miniCanvas.height / MAPA_H;
-
-            // Dibujar Jefe en minimapa
-            if(b.hp > 0) {
-                miniCtx.fillStyle = 'red';
-                miniCtx.beginPath();
-                miniCtx.arc(b.x * scaleX, b.y * scaleY, 5, 0, Math.PI*2);
-                miniCtx.fill();
-            }
-
-            // Dibujar Jugadores en minimapa
-            for(let id in estado.jugadores){
-                let p = estado.jugadores[id];
-                if(!p.clase) continue;
-                miniCtx.fillStyle = (id === socket.id) ? 'white' : 'lime';
-                miniCtx.beginPath();
-                miniCtx.arc(p.x * scaleX, p.y * scaleY, 3, 0, Math.PI*2);
-                miniCtx.fill();
-            }
-
-            // MOVIMIENTO
-            if(jugando && me.clase) {
-                let v = me.velocidad;
+        // 2. BUCLE DE JUEGO PRINCIPAL (A 60 FPS)
+        function gameLoop() {
+            // A. MOVIMIENTO Y PREDICCIÓN LOCAL
+            if (jugando && me.clase) {
+                let v = me.velocidad || 3;
                 let nextX = me.x;
                 let nextY = me.y;
 
@@ -333,21 +265,137 @@
                 if(teclas['a']) nextX -= v;
                 if(teclas['d']) nextX += v;
 
-                // Restricción visual de movimiento en el cliente (evita tirones)
                 nextX = Math.max(me.radio, Math.min(MAPA_W - me.radio, nextX));
                 nextY = Math.max(me.radio, Math.min(MAPA_H - me.radio, nextY));
 
                 if(nextX !== me.x || nextY !== me.y) {
                     socket.emit('movimiento', {x: nextX, y: nextY});
-                    me.x = nextX;
+                    me.x = nextX; // Predicción local inmediata (Cero Lag)
                     me.y = nextY;
                 }
 
-                if(autoFireEnabled) {
-                    socket.emit('disparar', mouseAngle);
+                if(autoFireEnabled) socket.emit('disparar', mouseAngle);
+            }
+
+            // B. ACTUALIZAR HUD
+            const bossPct = (serverState.jefe.hp / serverState.jefe.maxHp) * 100;
+            document.getElementById('bossBar').style.width = Math.max(0, bossPct) + "%";
+
+            // C. RENDERIZADO VISUAL
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (me.x && me.y) {
+                ctx.save();
+                let camX = -me.x + canvas.width/2;
+                let camY = -me.y + canvas.height/2;
+                ctx.translate(camX, camY);
+
+                // Dibujar Suelo
+                if(sprites['suelo'].complete && sprites['suelo'].naturalWidth > 0) {
+                    ctx.fillStyle = ctx.createPattern(sprites['suelo'], 'repeat');
+                    ctx.fillRect(0, 0, MAPA_W, MAPA_H);
+                } else {
+                    ctx.fillStyle = '#222'; ctx.fillRect(0, 0, MAPA_W, MAPA_H);
+                }
+
+                // D. DIBUJAR JUGADORES (Con Interpolación)
+                for(let id in serverState.jugadores) {
+                    let pServer = serverState.jugadores[id];
+                    if(!pServer.clase) continue;
+
+                    let renderX, renderY;
+
+                    if (id === socket.id) {
+                        // Mi posición es la que predijo mi computadora
+                        renderX = me.x;
+                        renderY = me.y;
+                    } else {
+                        // La posición de los demás se interpola suavemente
+                        if (!localEntities[id]) localEntities[id] = {x: pServer.x, y: pServer.y};
+                        localEntities[id].x = lerp(localEntities[id].x, pServer.x, 0.2);
+                        localEntities[id].y = lerp(localEntities[id].y, pServer.y, 0.2);
+                        renderX = localEntities[id].x;
+                        renderY = localEntities[id].y;
+                    }
+
+                    // Dibujar Nave
+                    let img = sprites[pServer.clase];
+                    if(img && img.complete) {
+                        ctx.save();
+                        ctx.translate(renderX, renderY);
+                        if(id === socket.id) ctx.rotate(mouseAngle); 
+                        ctx.drawImage(img, -pServer.radio, -pServer.radio, pServer.radio*2, pServer.radio*2);
+                        ctx.restore();
+                    } else {
+                        ctx.beginPath(); ctx.arc(renderX, renderY, pServer.radio, 0, Math.PI*2);
+                        ctx.fillStyle = pServer.color; ctx.fill();
+                    }
+
+                    // Barras de vida
+                    ctx.fillStyle = '#f00'; ctx.fillRect(renderX-15, renderY-30, 30, 5);
+                    ctx.fillStyle = '#0f0'; ctx.fillRect(renderX-15, renderY-30, (Math.max(0, pServer.hp)/pServer.maxHp)*30, 5);
+                    if(id === socket.id) {
+                        ctx.fillStyle = "white"; ctx.font = "12px Arial"; ctx.fillText("TÚ", renderX-10, renderY-40);
+                    }
+                }
+
+                // E. DIBUJAR JEFE (Con Interpolación)
+                let b = serverState.jefe;
+                if(b && b.hp > 0) {
+                    if (!localEntities['boss']) localEntities['boss'] = {x: b.x, y: b.y};
+                    localEntities['boss'].x = lerp(localEntities['boss'].x, b.x, 0.15);
+                    localEntities['boss'].y = lerp(localEntities['boss'].y, b.y, 0.15);
+
+                    if(sprites['jefe'].complete) {
+                        ctx.drawImage(sprites['jefe'], localEntities['boss'].x - b.radio, localEntities['boss'].y - b.radio, b.radio*2, b.radio*2);
+                    } else {
+                        ctx.beginPath(); ctx.arc(localEntities['boss'].x, localEntities['boss'].y, b.radio, 0, Math.PI*2);
+                        ctx.fillStyle = b.color; ctx.fill();
+                    }
+                }
+
+                // F. DIBUJAR BALAS
+                serverState.balas.forEach(ba => {
+                    ctx.beginPath(); ctx.arc(ba.x, ba.y, ba.radio, 0, Math.PI*2);
+                    ctx.fillStyle = ba.color; ctx.fill();
+                });
+
+                ctx.restore();
+
+                // G. ACTUALIZAR MINIMAPA
+                miniCtx.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+                let scaleX = miniCanvas.width / MAPA_W;
+                let scaleY = miniCanvas.height / MAPA_H;
+
+                // Jefe en minimapa
+                if(b && b.hp > 0 && localEntities['boss']) {
+                    miniCtx.fillStyle = 'red';
+                    miniCtx.beginPath();
+                    miniCtx.arc(localEntities['boss'].x * scaleX, localEntities['boss'].y * scaleY, 5, 0, Math.PI*2);
+                    miniCtx.fill();
+                }
+
+                // Jugadores en minimapa
+                for(let id in serverState.jugadores) {
+                    let p = serverState.jugadores[id];
+                    if(!p.clase) continue;
+                    
+                    let pX = (id === socket.id) ? me.x : (localEntities[id] ? localEntities[id].x : p.x);
+                    let pY = (id === socket.id) ? me.y : (localEntities[id] ? localEntities[id].y : p.y);
+
+                    miniCtx.fillStyle = (id === socket.id) ? 'white' : 'lime';
+                    miniCtx.beginPath();
+                    miniCtx.arc(pX * scaleX, pY * scaleY, 3, 0, Math.PI*2);
+                    miniCtx.fill();
                 }
             }
-        });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Iniciar el bucle de juego
+        gameLoop();
     </script>
 </body>
 </html>

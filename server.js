@@ -59,8 +59,8 @@ class Jugador extends Entidad {
 class Bala extends Entidad {
     constructor(x, y, angulo, idDueno, color, dano, esSanadora) {
         super(x, y, 8, color);
-        this.vx = Math.cos(angulo) * 12;
-        this.vy = Math.sin(angulo) * 12;
+        this.vx = Math.cos(angulo) * 36;
+        this.vy = Math.sin(angulo) * 36;
         this.idDueno = idDueno;
         this.dano = dano;
         this.esSanadora = esSanadora;
@@ -69,7 +69,7 @@ class Bala extends Entidad {
 
     mover() {
         this.x += this.vx; this.y += this.vy;
-        this.distancia += 12;
+        this.distancia += 36;
         if (this.distancia > 1200 || this.x < 0 || this.x > MAPA_W || this.y < 0 || this.y > MAPA_H) {
             this.borrar = true;
         }

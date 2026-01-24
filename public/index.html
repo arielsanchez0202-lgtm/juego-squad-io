@@ -339,6 +339,8 @@
 
                 if(nextX !== me.x || nextY !== me.y) {
                     socket.emit('movimiento', {x: nextX, y: nextY});
+                    me.x = nextX;
+                    me.y = nextY;
                 }
 
                 if(autoFireEnabled) {

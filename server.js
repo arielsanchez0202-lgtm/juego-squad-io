@@ -217,7 +217,7 @@ setInterval(() => {
     }
 
     io.emit('estado', { jugadores, balas, jefe });
-}, 1000/60);
+}, 1000 / 20);
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {

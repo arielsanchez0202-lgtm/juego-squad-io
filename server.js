@@ -32,6 +32,8 @@ class Jugador extends Entidad {
     constructor(id) {
         super(Math.random() * 200, Math.random() * 200, 20, 'white');
         this.id = id;
+        this.nombre = null;
+        this.lastWords = null;
         this.clase = null;
         this.score = 0;
         this.hp = 100;
@@ -59,6 +61,7 @@ class Jugador extends Entidad {
 class Bala extends Entidad {
     constructor(x, y, angulo, idDueno, color, dano, esSanadora) {
         super(x, y, 8, color);
+        this.id = Math.random();
         this.vx = Math.cos(angulo) * 36;
         this.vy = Math.sin(angulo) * 36;
         this.idDueno = idDueno;
@@ -119,11 +122,26 @@ let jugadores = {};
 let balas = [];
 let jefe = new Jefe();
 
+function getTop5Leaderboard() {
+    return Object.entries(jugadores)
+        .filter(([, j]) => j.clase)
+        .map(([id, j]) => ({ id, nombre: j.nombre || 'Piloto', score: j.score }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5);
+}
+
 io.on('connection', (socket) => {
     jugadores[socket.id] = new Jugador(socket.id);
 
-    socket.on('elegirClase', (tipo) => {
-        if(jugadores[socket.id]) jugadores[socket.id].asignarClase(tipo);
+    socket.on('elegirClase', (data) => {
+        const j = jugadores[socket.id];
+        if (!j) return;
+        const tipo = typeof data === 'string' ? data : (data?.clase || data);
+        const nombre = (typeof data === 'object' && data?.nombre) ? String(data.nombre).trim().slice(0, 10) : '';
+        const lastWords = (typeof data === 'object' && data?.lastWords) ? String(data.lastWords).trim().slice(0, 30) : '';
+        j.nombre = nombre || 'Piloto X';
+        j.lastWords = lastWords || undefined;
+        j.asignarClase(tipo);
     });
 
     socket.on('comprar', (item) => {
@@ -132,6 +150,7 @@ io.on('connection', (socket) => {
             j.score -= TIENDA[item].costo;
             if(item === 'dano') j.dano *= 1.1; 
             if(item === 'speed') j.velocidad += 1;
+            socket.emit('compraOk');
         }
     });
 
@@ -183,6 +202,8 @@ setInterval(() => {
                 if(Math.sqrt((b.x-j.x)**2 + (b.y-j.y)**2) < j.radio + 5){
                     j.hp -= b.dano;
                     b.borrar = true;
+                    io.emit('impacto', { x: b.x, y: b.y, color: j.color });
+                    break;
                 }
             }
         } 
@@ -191,9 +212,9 @@ setInterval(() => {
                 jefe.hp -= b.dano;
                 b.borrar = true;
                 if(jugadores[b.idDueno]) jugadores[b.idDueno].score += 5;
+                io.emit('impacto', { x: b.x, y: b.y, color: jefe.color });
             }
-            
-            if(b.esSanadora) {
+            else if(b.esSanadora) {
                 for(let id in jugadores){
                     let j = jugadores[id];
                     if(id !== b.idDueno && Math.sqrt((b.x-j.x)**2 + (b.y-j.y)**2) < j.radio + 10){
@@ -207,8 +228,24 @@ setInterval(() => {
         if(b.borrar) balas.splice(i, 1);
     }
 
+    // Colisión Jefe vs Jugadores
+    if(jefe.hp > 0) {
+        for(let id in jugadores) {
+            const jugador = jugadores[id];
+            if(!jugador.clase) continue;
+            
+            const dist = Math.hypot(jefe.x - jugador.x, jefe.y - jugador.y);
+            if(dist < (jefe.radio + jugador.radio)) {
+                jugador.hp -= 2;
+            }
+        }
+    }
+
     for(let id in jugadores){
         if(jugadores[id].clase && jugadores[id].hp <= 0){
+            const muerteX = jugadores[id].x;
+            const muerteY = jugadores[id].y;
+            io.emit('mensajeMuerte', { x: muerteX, y: muerteY, texto: jugadores[id].lastWords || "R.I.P." });
             jugadores[id].clase = null; 
             jugadores[id].score = Math.floor(jugadores[id].score / 2);
             jugadores[id].x = -1000; 
@@ -216,10 +253,10 @@ setInterval(() => {
         }
     }
 
-    io.emit('estado', { jugadores, balas, jefe });
+    io.emit('estado', { jugadores, balas, jefe, leaderboard: getTop5Leaderboard() });
 }, 1000 / 20);
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+http.listen(PORT, '0.0.0.0',() => {
+  console.log(`Servidor accesible en: http://192.168.100.22:${PORT}`);
 });

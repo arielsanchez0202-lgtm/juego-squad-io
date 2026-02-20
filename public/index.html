@@ -146,6 +146,53 @@
             color: white; font-size: 12px; pointer-events: auto; z-index: 5;
             transition: 0.1s;
         }
+        
+        #upgrade-panel {
+            display: none; position: absolute; bottom: 20px; left: 20px; 
+            background: rgba(0, 0, 0, 0.85); border: 2px solid #00d4ff; 
+            border-radius: 12px; padding: 15px; pointer-events: auto; z-index: 5;
+            font-family: 'Orbitron', sans-serif; min-width: 200px;
+        }
+        
+        .upgrade-title {
+            color: #00d4ff; font-size: 14px; font-weight: bold; margin-bottom: 10px;
+            text-align: center; text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .upgrade-points {
+            color: #ffd700; font-size: 12px; text-align: center; margin-bottom: 15px;
+            font-weight: bold;
+        }
+        
+        .upgrade-btn {
+            display: block; width: 100%; padding: 8px 12px; margin: 5px 0;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 150, 200, 0.3));
+            border: 1px solid #00d4ff; border-radius: 6px; color: white;
+            font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s;
+            text-align: left; font-family: 'Orbitron', sans-serif;
+        }
+        
+        .upgrade-btn:hover {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.4), rgba(0, 150, 200, 0.5));
+            transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+        }
+        
+        .upgrade-btn:active {
+            transform: translateY(0px);
+        }
+        
+        .upgrade-btn.maxed {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 150, 0, 0.4));
+            border-color: #ffd700; color: #ffd700; cursor: not-allowed;
+        }
+        
+        .upgrade-btn.maxed:hover {
+            transform: none; box-shadow: none;
+        }
+        
+        .upgrade-level {
+            float: right; color: #ffd700; font-size: 10px;
+        }
 
         #mobile-controls { position: absolute; bottom: 20px; left: 20px; width: 150px; height: 150px; pointer-events: auto; display: none; }
         .dpad-btn { position: absolute; width: 50px; height: 50px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; font-size: 24px; text-align: center; line-height: 45px; user-select: none; }
@@ -253,6 +300,23 @@
         <canvas id="minimap" width="150" height="100"></canvas>
 
         <button id="btn-autofire">AUTO<br>OFF<br>(E)</button>
+        
+        <div id="upgrade-panel">
+            <div class="upgrade-title">MEJORAS</div>
+            <div class="upgrade-points" id="skill-points-display">Puntos: 0</div>
+            <button class="upgrade-btn" data-type="dano">
+                🎯 Daño <span class="upgrade-level">[0/5]</span>
+            </button>
+            <button class="upgrade-btn" data-type="salud">
+                ❤️ Salud <span class="upgrade-level">[0/5]</span>
+            </button>
+            <button class="upgrade-btn" data-type="velocidad">
+                ⚡ Velocidad <span class="upgrade-level">[0/5]</span>
+            </button>
+            <button class="upgrade-btn" data-type="recarga">
+                🔥 Recarga <span class="upgrade-level">[0/5]</span>
+            </button>
+        </div>
 
         <div id="mobile-controls">
             <div id="btn-up" class="dpad-btn">▲</div> <div id="btn-left" class="dpad-btn">◄</div>
@@ -279,8 +343,19 @@
         const miniCanvas = document.getElementById('minimap');
         const miniCtx = miniCanvas.getContext('2d');
 
-        const MAPA_W = 1200;
-        const MAPA_H = 800;
+        const MAPA_W = 3000;
+        const MAPA_H = 3000;
+        
+        // Muros del entorno (se recibirán del servidor)
+        let walls = [];
+        
+        // --- FUNCIÓN DE COLISIÓN AABB ---
+        function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 &&
+                   x1 + w1 > x2 &&
+                   y1 < y2 + h2 &&
+                   y1 + h1 > y2;
+        }
 
         // --- SOUND MANAGER (Web Audio API - Síntesis retro) ---
         const soundManager = {
@@ -439,7 +514,14 @@
             lastShotTime: 0,
             visualLastShot: 0,
             reloadTime: 0,
-            lastAttempt: 0
+            lastAttempt: 0,
+            skillPoints: 0,
+            upgrades: {
+                dano: { nivel: 0, max: 5 },
+                salud: { nivel: 0, max: 5 },
+                velocidad: { nivel: 0, max: 5 },
+                recarga: { nivel: 0, max: 5 }
+            }
         };
         let jugando = false;
         let teclas = {};
@@ -738,6 +820,19 @@
         }
 
         socket.on('compraOk', () => soundManager.playPowerUp());
+        
+        socket.on('mapaInfo', (data) => {
+            walls = data.walls;
+            MAPA_W = data.MAPA_W;
+            MAPA_H = data.MAPA_H;
+        });
+        
+        socket.on('upgradeOk', (data) => {
+            soundManager.playPowerUp();
+            me.skillPoints = data.skillPoints;
+            me.upgrades[data.tipo].nivel = data.nivel;
+            updateUpgradePanel();
+        });
         socket.on('muerte', () => {
             soundManager.playDeath();
             screenShake = 36; damageFlash = 0.9;
@@ -828,6 +923,13 @@
                     screenShake = Math.max(screenShake, 18);
                     damageFlash = 0.7;
                 }
+                
+                // Actualizar skill points y mejoras
+                me.skillPoints = serverMe.skillPoints || 0;
+                if(serverMe.upgrades) {
+                    me.upgrades = serverMe.upgrades;
+                }
+                
                 const needsInit = (typeof me.x === 'undefined') || (typeof me.reloadTime === 'undefined');
                 if (needsInit) {
                     me.x = serverMe.x; me.y = serverMe.y;
@@ -839,12 +941,14 @@
                     me.lastShotTime = me.lastShotTime || Date.now();
                     me.visualLastShot = me.visualLastShot || me.lastShotTime;
                     prevHp = serverMe.hp;
+                    updateUpgradePanel();
                 } else {
                     prevHp = serverMe.hp;
                     me.hp = serverMe.hp;
                     me.maxHp = serverMe.maxHp;
                     me.score = serverMe.score;
                     me.clase = serverMe.clase;
+                    me.velocidad = serverMe.velocidad;
                     if (serverMe.x != null && serverMe.y != null && typeof me.x !== 'undefined' && typeof me.y !== 'undefined') {
                         const dx = serverMe.x - me.x;
                         const dy = serverMe.y - me.y;
@@ -852,6 +956,7 @@
                         if (dist > 100) { me.x = serverMe.x; me.y = serverMe.y; }
                         else if (dist > 20) { me.x += dx * 0.1; me.y += dy * 0.1; }
                     }
+                    updateUpgradePanel();
                 }
             }
         });
@@ -860,6 +965,58 @@
         function lerp(start, end, amt) {
             return (1 - amt) * start + amt * end;
         }
+        
+        // Sistema de mejoras
+        function updateUpgradePanel() {
+            const panel = document.getElementById('upgrade-panel');
+            const pointsDisplay = document.getElementById('skill-points-display');
+            
+            if (me.skillPoints > 0 && jugando && !isDead) {
+                panel.style.display = 'block';
+                pointsDisplay.textContent = `Puntos: ${me.skillPoints}`;
+                
+                // Actualizar botones de mejora
+                const tipos = ['dano', 'salud', 'velocidad', 'recarga'];
+                tipos.forEach(tipo => {
+                    const btn = document.querySelector(`[data-type="${tipo}"]`);
+                    const nivel = me.upgrades[tipo].nivel;
+                    const max = me.upgrades[tipo].max;
+                    const span = btn.querySelector('.upgrade-level');
+                    
+                    span.textContent = `[${nivel}/${max}]`;
+                    
+                    if (nivel >= max) {
+                        btn.classList.add('maxed');
+                        btn.disabled = true;
+                    } else {
+                        btn.classList.remove('maxed');
+                        btn.disabled = false;
+                    }
+                });
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        
+        // Event listeners para los botones de mejora
+        document.querySelectorAll('.upgrade-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const tipo = btn.getAttribute('data-type');
+                if (me.skillPoints > 0 && me.upgrades[tipo].nivel < me.upgrades[tipo].max) {
+                    socket.emit('upgrade', tipo);
+                }
+            });
+            
+            // Soporte para móvil
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const tipo = btn.getAttribute('data-type');
+                if (me.skillPoints > 0 && me.upgrades[tipo].nivel < me.upgrades[tipo].max) {
+                    socket.emit('upgrade', tipo);
+                }
+            });
+        });
 
         function tryShoot() {
             const now = Date.now();
@@ -897,11 +1054,41 @@
 
                 nextX = Math.max(me.radio, Math.min(MAPA_W - me.radio, nextX));
                 nextY = Math.max(me.radio, Math.min(MAPA_H - me.radio, nextY));
+                
+                // Predicción de colisión local (Wall Sliding en cliente)
+                const r = me.radio || 20; // Radio seguro para evitar NaN
+                const deltaX = nextX - me.x;
+                const deltaY = nextY - me.y;
+                
+                let finalX = me.x;
+                let finalY = me.y;
+                
+                // Intentar movimiento en X
+                let canMoveX = true;
+                const testX = me.x + deltaX;
+                for(let wall of walls) {
+                    if(checkCollision(testX - r, me.y - r, r*2, r*2, wall.x, wall.y, wall.w, wall.h)) {
+                        canMoveX = false;
+                        break;
+                    }
+                }
+                if(canMoveX) finalX = testX;
+                
+                // Intentar movimiento en Y
+                let canMoveY = true;
+                const testY = me.y + deltaY;
+                for(let wall of walls) {
+                    if(checkCollision(me.x - r, testY - r, r*2, r*2, wall.x, wall.y, wall.w, wall.h)) {
+                        canMoveY = false;
+                        break;
+                    }
+                }
+                if(canMoveY) finalY = testY;
 
-                if(!isDead && (nextX !== me.x || nextY !== me.y)) {
-                    socket.emit('movimiento', {x: nextX, y: nextY});
-                    me.x = nextX; // Predicción local inmediata (Cero Lag)
-                    me.y = nextY;
+                if(!isDead && (finalX !== me.x || finalY !== me.y)) {
+                    socket.emit('movimiento', {x: finalX, y: finalY});
+                    me.x = finalX; // Predicción local inmediata (Cero Lag)
+                    me.y = finalY;
                 }
 
                 if(!isDead && (autoFireEnabled || isShooting || isMouseDown)) {
@@ -945,7 +1132,20 @@
                     ctx.fillStyle = '#222'; ctx.fillRect(0, 0, MAPA_W, MAPA_H);
                 }
 
-                // D. DIBUJAR JUGADORES (Con Interpolación)
+                // D. DIBUJAR MUROS (antes que todo lo demás)
+                ctx.fillStyle = '#555555'; // Gris hormigón
+                for(let wall of walls) {
+                    // Los muros están en coordenadas de mundo, igual que los jugadores
+                    // Como ctx.translate() ya está aplicado, dibujamos directamente
+                    ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+                    
+                    // Borde negro para definición
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
+                }
+                
+                // E. DIBUJAR JUGADORES (Con Interpolación)
                 for(let id in serverState.jugadores) {
                     let pServer = serverState.jugadores[id];
                     if(!pServer.clase) continue;
@@ -1002,18 +1202,74 @@
                         document.getElementById('hud').style.display = 'none';
                     }
                 }
-                // E. DIBUJAR JEFE (Con Interpolación)
+                // E. DIBUJAR JEFE (Con Interpolación y Sierra de Pinchos)
                 let b = serverState.jefe;
                 if(b && b.hp > 0) {
                     if (!localEntities['boss']) localEntities['boss'] = {x: b.x, y: b.y};
                     localEntities['boss'].x = lerp(localEntities['boss'].x, b.x, 0.15);
                     localEntities['boss'].y = lerp(localEntities['boss'].y, b.y, 0.15);
 
-                    if(sprites['jefe'].complete) {
-                        ctx.drawImage(sprites['jefe'], localEntities['boss'].x - b.radio, localEntities['boss'].y - b.radio, b.radio*2, b.radio*2);
+                    const bossX = localEntities['boss'].x;
+                    const bossY = localEntities['boss'].y;
+                    const bossRadius = b.radio;
+                    
+                    // Cambiar color según modo frenesí
+                    const bossColor = b.isFrenzy ? '#ff3333' : b.color; // Rojo oscuro intenso en modo frenesí
+                    
+                    if(b.isFrenzy) {
+                        // Sierra de pinchos giratoria en modo frenesí
+                        ctx.save();
+                        ctx.translate(bossX, bossY);
+                        
+                        // Rotación continua basada en TIEMPO (sierra mecánica real)
+                        ctx.rotate(Date.now() / 100);
+                        
+                        // Dibujar círculo base
+                        ctx.fillStyle = bossColor;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, bossRadius, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // Dibujar pinchos (triángulos) alrededor del centro (0,0)
+                        ctx.fillStyle = '#ff6666'; // Rojo brillante para los pinchos
+                        const numPinchos = 10;
+                        for(let i = 0; i < numPinchos; i++) {
+                            const angle = (Math.PI * 2 / numPinchos) * i;
+                            const pinchoLength = bossRadius * 0.4;
+                            const pinchoWidth = bossRadius * 0.12;
+                            
+                            ctx.save();
+                            ctx.rotate(angle);
+                            
+                            // Dibujar triángulo (pincho)
+                            ctx.beginPath();
+                            ctx.moveTo(bossRadius - 3, 0);
+                            ctx.lineTo(bossRadius - 3 + pinchoLength, -pinchoWidth/2);
+                            ctx.lineTo(bossRadius - 3 + pinchoLength, pinchoWidth/2);
+                            ctx.closePath();
+                            ctx.fill();
+                            
+                            ctx.restore();
+                        }
+                        
+                        // Borde para mayor impacto visual
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(0, 0, bossRadius, 0, Math.PI * 2);
+                        ctx.stroke();
+                        
+                        ctx.restore();
                     } else {
-                        ctx.beginPath(); ctx.arc(localEntities['boss'].x, localEntities['boss'].y, b.radio, 0, Math.PI*2);
-                        ctx.fillStyle = b.color; ctx.fill();
+                        // Dibujo normal del jefe
+                        if(sprites['jefe'].complete) {
+                            ctx.drawImage(sprites['jefe'], bossX - bossRadius, bossY - bossRadius, bossRadius*2, bossRadius*2);
+                        } else {
+                            ctx.beginPath(); 
+                            ctx.arc(bossX, bossY, bossRadius, 0, Math.PI*2);
+                            ctx.fillStyle = bossColor; 
+                            ctx.fill();
+                        }
                     }
                 }
 

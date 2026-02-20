@@ -5,8 +5,8 @@ const io = require('socket.io')(http);
 
 app.use(express.static('public'));
 
-const MAPA_W = 1200;
-const MAPA_H = 800;
+const MAPA_W = 3000;
+const MAPA_H = 3000;
 
 // --- CONFIGURACIÓN DE CLASES ---
 const CLASES = {
@@ -14,6 +14,22 @@ const CLASES = {
     'sniper': { hp: 80,  velocidad: 6,  dano: 40, radio: 15, color: '#f1c40f', reload: 40 },
     'medico': { hp: 120, velocidad: 5,  dano: 10, radio: 20, color: '#2ecc71', reload: 10 } 
 };
+
+// --- MUROS DEL ENTORNO ---
+const walls = [
+    {x: 800, y: 800, w: 300, h: 300},
+    {x: 1900, y: 800, w: 300, h: 300},
+    {x: 800, y: 1900, w: 300, h: 300},
+    {x: 1900, y: 1900, w: 300, h: 300}
+];
+
+// --- FUNCIÓN DE COLISIÓN AABB ---
+function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+    return x1 < x2 + w2 &&
+           x1 + w1 > x2 &&
+           y1 < y2 + h2 &&
+           y1 + h1 > y2;
+}
 
 const TIENDA = {
     'dano':   { costo: 150, nombre: "Daño (+10%)" },
@@ -30,7 +46,7 @@ class Entidad {
 
 class Jugador extends Entidad {
     constructor(id) {
-        super(Math.random() * 200, Math.random() * 200, 20, 'white');
+        super(1500, 1500, 20, 'white'); // Spawn central seguro
         this.id = id;
         this.nombre = null;
         this.lastWords = null;
@@ -42,6 +58,16 @@ class Jugador extends Entidad {
         this.dano = 0;
         this.cooldown = 0;
         this.maxCooldown = 0;
+        
+        // Sistema de mejoras
+        this.skillPoints = 0;
+        this.upgrades = {
+            dano: { nivel: 0, max: 5 },
+            salud: { nivel: 0, max: 5 },
+            velocidad: { nivel: 0, max: 5 },
+            recarga: { nivel: 0, max: 5 }
+        };
+        this.lastSkillPointScore = 0;
     }
 
     asignarClase(tipo) {
@@ -55,6 +81,44 @@ class Jugador extends Entidad {
         this.radio = c.radio;
         this.color = c.color;
         this.maxCooldown = c.reload;
+        this.lastSkillPointScore = 0;
+    }
+    
+    // Sistema de mejoras
+    ganarSkillPoints() {
+        const maxSkillPoints = 20; // 4 estadísticas x 5 niveles = 20 puntos máximos
+        const puntosGanar = Math.floor(this.score / 100) - Math.floor(this.lastSkillPointScore / 100);
+        if(puntosGanar > 0 && this.skillPoints < maxSkillPoints) {
+            const puntosAAgregar = Math.min(puntosGanar, maxSkillPoints - this.skillPoints);
+            this.skillPoints += puntosAAgregar;
+            this.lastSkillPointScore = Math.floor(this.score / 100) * 100;
+        }
+    }
+    
+    aplicarMejora(tipo) {
+        if(this.skillPoints <= 0 || this.upgrades[tipo].nivel >= this.upgrades[tipo].max) {
+            return false;
+        }
+        
+        this.skillPoints--;
+        this.upgrades[tipo].nivel++;
+        
+        switch(tipo) {
+            case 'dano':
+                this.dano *= 1.25; // +25% por nivel (más agresivo)
+                break;
+            case 'salud':
+                this.maxHp *= 1.3; // +30% por nivel (más significativo)
+                this.hp = Math.min(this.hp + 30, this.maxHp); // Curar más
+                break;
+            case 'velocidad':
+                this.velocidad += 1.2; // +1.2 por nivel (más notorio)
+                break;
+            case 'recarga':
+                this.maxCooldown *= 0.75; // -25% por nivel (más drástico)
+                break;
+        }
+        return true;
     }
 }
 
@@ -81,33 +145,201 @@ class Bala extends Entidad {
 
 class Jefe extends Entidad {
     constructor() {
-        super(MAPA_W/2, MAPA_H/2, 90, '#e74c3c');
+        super(1500, 1500, 90, '#e74c3c'); // Spawn seguro y central
         this.hp = 3000;
         this.maxHp = 3000;
-        this.velocidad = 1.5;
+        this.velocidad = 12.0;
         this.tiempo = 0;
+        
+        // Sistema de Modo Frenesí
+        this.isFrenzy = false;
+        this.frenzyTimer = 0;
+        this.normalSpeed = 24.0; // Velocidad base aumentada
+        this.frenzySpeed = 32.0; // Velocidad frenesí más rápida
+        this.frenzyDuration = 80; // 4 segundos a 20 FPS
+        this.frenzyCooldown = 300; // 15 segundos a 20 FPS
+        this.lastFrenzyTime = 0;
+        this.patrolAngle = Math.random() * Math.PI * 2; // Ángulo de patrullaje
+        
+        // IA 2.0 - Depredador Inteligente
+        this.lastPosition = {x: 1500, y: 1500};
+        this.stuckTimer = 0;
+        this.isDashing = false;
+        this.dashTimer = 0;
+        this.dashDirection = 0;
     }
 
+    // IA 2.0 - Targeting Inteligente
+    evaluarPresa(jugador) {
+        let score = 0;
+        
+        // 1. Distancia (cercanos son preferibles)
+        const dist = Math.hypot(jugador.x - this.x, jugador.y - this.y);
+        score += Math.max(0, 1000 - dist); // Más puntos si está cerca
+        
+        // 2. Salud (jugadores con menos HP son más atractivos)
+        const hpRatio = jugador.hp / jugador.maxHp;
+        score += (1 - hpRatio) * 500; // Más puntos si tiene poca vida
+        
+        // 3. Velocidad (jugadores más lentos son presas fáciles)
+        const velocidadPenalty = jugador.velocidad * 50;
+        score -= velocidadPenalty; // Resta puntos si es rápido
+        
+        // 4. Clase específica (Tanques son objetivos fáciles)
+        if(jugador.clase === 'tanque') score += 200;
+        if(jugador.clase === 'sniper') score -= 100; // Snipers son difíciles
+        
+        return score;
+    }
+    
+    // IA 2.0 - Anti-Atasco (Wall Evasion)
+    checkStuck() {
+        const distMoved = Math.hypot(this.x - this.lastPosition.x, this.y - this.lastPosition.y);
+        this.lastPosition = {x: this.x, y: this.y};
+        
+        if(distMoved < 2) { // Si apenas se movió
+            this.stuckTimer++;
+            if(this.stuckTimer > 20) { // 1 segundo atascado (20 ticks)
+                // Iniciar Dash perpendicular
+                this.isDashing = true;
+                this.dashTimer = 20; // 1 segundo de dash
+                this.dashDirection = Math.random() * Math.PI * 2;
+                this.stuckTimer = 0;
+            }
+        } else {
+            this.stuckTimer = 0;
+        }
+    }
+    
+    // IA 2.0 - Vampirismo
+    curarsePorMuerte() {
+        this.hp = Math.min(this.hp + 200, this.maxHp); // Cura 200 HP por muerte
+    }
     pensar(jugadores) {
+        // IA 2.0 - Targeting Inteligente
         let target = null;
-        let minD = 9999;
+        let maxScore = -Infinity;
         
         for(let id in jugadores){
             let j = jugadores[id];
             if(!j.clase) continue;
-            let d = Math.sqrt((j.x-this.x)**2 + (j.y-this.y)**2);
-            if(d < minD){ minD = d; target = j; }
+            
+            const score = this.evaluarPresa(j);
+            if(score > maxScore) {
+                maxScore = score;
+                target = j;
+            }
         }
 
+        // Máquina de estados del Modo Frenesí
+        this.frenzyTimer++;
+        
+        if(!this.isFrenzy && this.frenzyTimer - this.lastFrenzyTime >= this.frenzyCooldown) {
+            // Activar modo frenesí
+            this.isFrenzy = true;
+            this.lastFrenzyTime = this.frenzyTimer;
+        } else if(this.isFrenzy && this.frenzyTimer - this.lastFrenzyTime >= this.frenzyDuration) {
+            // Desactivar modo frenesí
+            this.isFrenzy = false;
+        }
+        
+        // IA 2.0 - Anti-Atasco
+        this.checkStuck();
+        
+        let currentSpeed = this.isFrenzy ? this.frenzySpeed : this.normalSpeed;
+        
+        if(this.isDashing) {
+            // Dash ultra rápido para desatascarse
+            currentSpeed = 8.0;
+            this.dashTimer--;
+            if(this.dashTimer <= 0) {
+                this.isDashing = false;
+            }
+        }
+        
+        let nextX, nextY;
+        
         if(target){
+            // Perseguir al jugador con mayor puntaje de presa
             let ang = Math.atan2(target.y - this.y, target.x - this.x);
-            this.x += Math.cos(ang) * this.velocidad;
-            this.y += Math.sin(ang) * this.velocidad;
-
-            // Evitar que el jefe salga del mapa
-            this.x = Math.max(this.radio, Math.min(MAPA_W - this.radio, this.x));
-            this.y = Math.max(this.radio, Math.min(MAPA_H - this.radio, this.y));
+            
+            if(this.isDashing) {
+                // Dash en dirección perpendicular o aleatoria
+                ang = this.dashDirection;
+            }
+            
+            const moveX = Math.cos(ang) * currentSpeed;
+            const moveY = Math.sin(ang) * currentSpeed;
+            
+            // Wall Sliding: Intentar moverse en X e Y por separado
+            let finalX = this.x;
+            let finalY = this.y;
+            
+            // Intentar movimiento en X
+            let canMoveX = true;
+            const testX = this.x + moveX;
+            for(let wall of walls) {
+                if(checkCollision(testX - this.radio, this.y - this.radio, this.radio*2, this.radio*2, wall.x, wall.y, wall.w, wall.h)) {
+                    canMoveX = false;
+                    break;
+                }
+            }
+            if(canMoveX) finalX = testX;
+            
+            // Intentar movimiento en Y
+            let canMoveY = true;
+            const testY = this.y + moveY;
+            for(let wall of walls) {
+                if(checkCollision(this.x - this.radio, testY - this.radio, this.radio*2, this.radio*2, wall.x, wall.y, wall.w, wall.h)) {
+                    canMoveY = false;
+                    break;
+                }
+            }
+            if(canMoveY) finalY = testY;
+            
+            // Aplicar movimiento final
+            this.x = finalX;
+            this.y = finalY;
+        } else {
+            // Patrullar aleatoriamente si no hay jugadores
+            this.patrolAngle += (Math.random() - 0.5) * 0.2;
+            const moveX = Math.cos(this.patrolAngle) * currentSpeed * 0.5;
+            const moveY = Math.sin(this.patrolAngle) * currentSpeed * 0.5;
+            
+            // Wall Sliding para patrullaje
+            let finalX = this.x;
+            let finalY = this.y;
+            
+            // Intentar movimiento en X
+            let canMoveX = true;
+            const testX = this.x + moveX;
+            for(let wall of walls) {
+                if(checkCollision(testX - this.radio, this.y - this.radio, this.radio*2, this.radio*2, wall.x, wall.y, wall.w, wall.h)) {
+                    canMoveX = false;
+                    break;
+                }
+            }
+            if(canMoveX) finalX = testX;
+            
+            // Intentar movimiento en Y
+            let canMoveY = true;
+            const testY = this.y + moveY;
+            for(let wall of walls) {
+                if(checkCollision(this.x - this.radio, testY - this.radio, this.radio*2, this.radio*2, wall.x, wall.y, wall.w, wall.h)) {
+                    canMoveY = false;
+                    break;
+                }
+            }
+            if(canMoveY) finalY = testY;
+            
+            // Aplicar movimiento final
+            this.x = finalX;
+            this.y = finalY;
         }
+
+        // Evitar que el jefe salga del mapa
+        this.x = Math.max(this.radio, Math.min(MAPA_W - this.radio, this.x));
+        this.y = Math.max(this.radio, Math.min(MAPA_H - this.radio, this.y));
 
         this.tiempo++;
         if(this.tiempo % 120 === 0) {
@@ -132,6 +364,9 @@ function getTop5Leaderboard() {
 
 io.on('connection', (socket) => {
     jugadores[socket.id] = new Jugador(socket.id);
+    
+    // Enviar muros al cliente cuando se conecta
+    socket.emit('mapaInfo', { walls, MAPA_W, MAPA_H });
 
     socket.on('elegirClase', (data) => {
         const j = jugadores[socket.id];
@@ -144,6 +379,14 @@ io.on('connection', (socket) => {
         j.asignarClase(tipo);
     });
 
+    socket.on('upgrade', (tipo) => {
+        let j = jugadores[socket.id];
+        if(j && j.clase && j.aplicarMejora(tipo)) {
+            socket.emit('upgradeOk', { tipo, nivel: j.upgrades[tipo].nivel, skillPoints: j.skillPoints });
+        }
+    });
+    
+    // Mantener el antiguo sistema de compras por compatibilidad temporal
     socket.on('comprar', (item) => {
         let j = jugadores[socket.id];
         if(j && j.clase && TIENDA[item] && j.score >= TIENDA[item].costo) {
@@ -157,9 +400,42 @@ io.on('connection', (socket) => {
     socket.on('movimiento', (d) => {
         let j = jugadores[socket.id];
         if(j && j.clase) { 
-            // NUEVO: Limitar movimiento dentro del mapa (Colisión con los bordes)
-            j.x = Math.max(j.radio, Math.min(MAPA_W - j.radio, d.x));
-            j.y = Math.max(j.radio, Math.min(MAPA_H - j.radio, d.y));
+            // Wall Sliding suave en el servidor
+            const nextX = Math.max(j.radio, Math.min(MAPA_W - j.radio, d.x));
+            const nextY = Math.max(j.radio, Math.min(MAPA_H - j.radio, d.y));
+            
+            // Calcular movimiento delta para aplicar wall sliding
+            const deltaX = nextX - j.x;
+            const deltaY = nextY - j.y;
+            
+            let finalX = j.x;
+            let finalY = j.y;
+            
+            // Intentar movimiento en X
+            let canMoveX = true;
+            const testX = j.x + deltaX;
+            for(let wall of walls) {
+                if(checkCollision(testX - j.radio, j.y - j.radio, j.radio*2, j.radio*2, wall.x, wall.y, wall.w, wall.h)) {
+                    canMoveX = false;
+                    break;
+                }
+            }
+            if(canMoveX) finalX = testX;
+            
+            // Intentar movimiento en Y
+            let canMoveY = true;
+            const testY = j.y + deltaY;
+            for(let wall of walls) {
+                if(checkCollision(j.x - j.radio, testY - j.radio, j.radio*2, j.radio*2, wall.x, wall.y, wall.w, wall.h)) {
+                    canMoveY = false;
+                    break;
+                }
+            }
+            if(canMoveY) finalY = testY;
+            
+            // Aplicar movimiento final
+            j.x = finalX;
+            j.y = finalY;
         }
     });
 
@@ -180,6 +456,13 @@ io.on('connection', (socket) => {
 setInterval(() => {
     for(let id in jugadores) {
         if(jugadores[id].cooldown > 0) jugadores[id].cooldown--;
+    }
+    
+    // Actualizar skill points basados en score
+    for(let id in jugadores) {
+        if(jugadores[id].clase) {
+            jugadores[id].ganarSkillPoints();
+        }
     }
 
     if(jefe.hp > 0) jefe.pensar(jugadores);
@@ -211,7 +494,11 @@ setInterval(() => {
             if(Math.sqrt((b.x-jefe.x)**2 + (b.y-jefe.y)**2) < jefe.radio + 10){
                 jefe.hp -= b.dano;
                 b.borrar = true;
-                if(jugadores[b.idDueno]) jugadores[b.idDueno].score += 5;
+                if(jugadores[b.idDueno]) {
+                    // Daño = Puntos: Ganar puntos proporcionales al daño
+                    const puntosGanar = Math.floor(b.dano * 2); // 2 puntos por cada 1 de daño
+                    jugadores[b.idDueno].score += puntosGanar;
+                }
                 io.emit('impacto', { x: b.x, y: b.y, color: jefe.color });
             }
             else if(b.esSanadora) {
@@ -226,6 +513,14 @@ setInterval(() => {
             }
         }
         if(b.borrar) balas.splice(i, 1);
+        
+        // Colisión de balas con muros
+        for(let wall of walls) {
+            if(checkCollision(b.x - b.radio, b.y - b.radio, b.radio*2, b.radio*2, wall.x, wall.y, wall.w, wall.h)) {
+                b.borrar = true;
+                break;
+            }
+        }
     }
 
     // Colisión Jefe vs Jugadores
@@ -236,7 +531,13 @@ setInterval(() => {
             
             const dist = Math.hypot(jefe.x - jugador.x, jefe.y - jugador.y);
             if(dist < (jefe.radio + jugador.radio)) {
-                jugador.hp -= 2;
+                if(jefe.isFrenzy) {
+                    // Daño letal en modo frenesí
+                    jugador.hp -= 9999;
+                } else {
+                    // Daño por quemadura suave en modo normal
+                    jugador.hp -= 2;
+                }
             }
         }
     }
@@ -246,9 +547,33 @@ setInterval(() => {
             const muerteX = jugadores[id].x;
             const muerteY = jugadores[id].y;
             io.emit('mensajeMuerte', { x: muerteX, y: muerteY, texto: jugadores[id].lastWords || "R.I.P." });
-            jugadores[id].clase = null; 
-            jugadores[id].score = Math.floor(jugadores[id].score / 2);
-            jugadores[id].x = -1000; 
+            
+            // IA 2.0 - Vampirismo: El jefe se cura cuando un jugador muere
+            jefe.curarsePorMuerte();
+            
+            // Fix de Reaparición: Conservar mitad del score y recalcular skill points
+            const jugador = jugadores[id];
+            const scoreConservado = Math.floor(jugador.score / 2);
+            
+            // Reiniciar mejoras pero conservar score
+            jugador.clase = null;
+            jugador.score = scoreConservado;
+            jugador.x = -1000;
+            jugador.hp = 100;
+            jugador.maxHp = 100;
+            
+            // Recalcular skill points basados en el score conservado
+            jugador.skillPoints = Math.min(Math.floor(scoreConservado / 100), 20); // Máximo 20 puntos
+            jugador.lastSkillPointScore = Math.floor(scoreConservado / 100) * 100;
+            
+            // Reiniciar mejoras a 0
+            jugador.upgrades = {
+                dano: { nivel: 0, max: 5 },
+                salud: { nivel: 0, max: 5 },
+                velocidad: { nivel: 0, max: 5 },
+                recarga: { nivel: 0, max: 5 }
+            };
+            
             io.to(id).emit('muerte', "HAS MUERTO");
         }
     }

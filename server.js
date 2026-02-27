@@ -58,6 +58,7 @@ class Jugador extends Entidad {
         this.dano = 0;
         this.cooldown = 0;
         this.maxCooldown = 0;
+        this.angle = 0; // ¡CRÍTICO: Añadir ángulo del jugador!
         
         // Sistema de mejoras
         this.skillPoints = 0;
@@ -81,14 +82,20 @@ class Jugador extends Entidad {
         this.radio = c.radio;
         this.color = c.color;
         this.maxCooldown = c.reload;
+        // ¡CRÍTICO: Inicializar reloadTime!
+        this.reloadTime = c.reload;
         this.lastSkillPointScore = 0;
     }
     
     // Sistema de mejoras
     ganarSkillPoints() {
-        const maxSkillPoints = 20; // 4 estadísticas x 5 niveles = 20 puntos máximos
+        // Calcular niveles totales ya comprados
+        const nivelesComprados = Object.values(this.upgrades).reduce((total, upgrade) => total + upgrade.nivel, 0);
+        const maxNivelesTotales = 20; // 4 estadísticas x 5 niveles = 20 niveles máximos
+        const maxSkillPoints = maxNivelesTotales - nivelesComprados; // Puntos disponibles restantes
+        
         const puntosGanar = Math.floor(this.score / 100) - Math.floor(this.lastSkillPointScore / 100);
-        if(puntosGanar > 0 && this.skillPoints < maxSkillPoints) {
+        if(puntosGanar > 0 && this.skillPoints < maxSkillPoints && nivelesComprados < maxNivelesTotales) {
             const puntosAAgregar = Math.min(puntosGanar, maxSkillPoints - this.skillPoints);
             this.skillPoints += puntosAAgregar;
             this.lastSkillPointScore = Math.floor(this.score / 100) * 100;
@@ -112,10 +119,11 @@ class Jugador extends Entidad {
                 this.hp = Math.min(this.hp + 30, this.maxHp); // Curar más
                 break;
             case 'velocidad':
-                this.velocidad += 1.2; // +1.2 por nivel (más notorio)
+                this.velocidad *= 1.2; // +20% por nivel (más notorio)
                 break;
             case 'recarga':
                 this.maxCooldown *= 0.75; // -25% por nivel (más drástico)
+                this.reloadTime = this.maxCooldown; // ¡CRÍTICO: Sincronizar reloadTime!
                 break;
         }
         return true;
@@ -126,12 +134,14 @@ class Bala extends Entidad {
     constructor(x, y, angulo, idDueno, color, dano, esSanadora) {
         super(x, y, 8, color);
         this.id = Math.random();
+        this.angulo = angulo; // ¡CRÍTICO: Guardar el ángulo!
         this.vx = Math.cos(angulo) * 36;
         this.vy = Math.sin(angulo) * 36;
         this.idDueno = idDueno;
         this.dano = dano;
         this.esSanadora = esSanadora;
         this.distancia = 0;
+        this.hitTimer = 0;
     }
 
     mover() {
@@ -441,63 +451,106 @@ io.on('connection', (socket) => {
 
     socket.on('disparar', (angulo) => {
         let j = jugadores[socket.id];
-        if (j && j.clase && j.cooldown <= 0) {
-            let esSanadora = (j.clase === 'medico');
-            let colorBala = esSanadora ? '#2ecc71' : 'yellow';
-            
-            balas.push(new Bala(j.x, j.y, angulo, socket.id, colorBala, j.dano, esSanadora));
-            j.cooldown = j.maxCooldown; 
+        
+        // ¡CRÍTICO: Límite físico absoluto - Sin excepciones!
+        const now = Date.now();
+        if (!j || !j.clase) return;
+        const cooldownReal = Math.max(j.reloadTime || 1000, 200); // JAMÁS más rápido que 200ms
+        const tiempoPasado = now - (j.lastShotTime || 0);
+        if (tiempoPasado < cooldownReal) return;
+        j.lastShotTime = now;
+        
+        let esSanadora = (j.clase === 'medico');
+        let colorBala = esSanadora ? '#2ecc71' : 'yellow';
+        
+        balas.push(new Bala(j.x, j.y, angulo, socket.id, colorBala, j.dano, esSanadora));
+        j.cooldown = j.maxCooldown;
+    });
+
+    socket.on('angulo', (angulo) => {
+        let j = jugadores[socket.id];
+        if (j && j.clase) {
+            j.angle = angulo; // Actualizar ángulo del jugador
         }
     });
 
     socket.on('disconnect', () => { delete jugadores[socket.id]; });
 });
-
 setInterval(() => {
-    for(let id in jugadores) {
-        if(jugadores[id].cooldown > 0) jugadores[id].cooldown--;
-    }
-    
-    // Actualizar skill points basados en score
-    for(let id in jugadores) {
-        if(jugadores[id].clase) {
-            jugadores[id].ganarSkillPoints();
-        }
-    }
-
-    if(jefe.hp > 0) jefe.pensar(jugadores);
-    else {
-        io.emit('mensajeGlobal', "¡VICTORIA! RONDA COMPLETADA");
-        for(let id in jugadores) jugadores[id].score += 500;
-        jefe.maxHp *= 1.2; jefe.hp = jefe.maxHp; jefe.velocidad += 0.2;
-        jefe.x = MAPA_W/2; jefe.y = MAPA_H/2;
-        balas = [];
-    }
-
-    for (let i = balas.length - 1; i >= 0; i--) {
+    // Actualizar físicas de balas
+    for(let i=balas.length-1; i>=0; i--) {
         let b = balas[i];
-        b.mover();
-
-        if(b.idDueno === 'BOSS'){
+        b.x += Math.cos(b.angulo) * 15;
+        b.y += Math.sin(b.angulo) * 15;
+        b.hitTimer++;
+        
+        // Colisión balas con muros
+        for(let wall of walls) {
+            if(checkCollision(b.x - b.radio, b.y - b.radio, b.radio*2, b.radio*2, wall.x, wall.y, wall.w, wall.h)) {
+                b.borrar = true;
+                io.emit('impacto', { x: b.x, y: b.y, color: '#666' });
+                break;
+            }
+        }
+        
+        if(b.x < 0 || b.x > MAPA_W || b.y < 0 || b.y > MAPA_H || b.hitTimer > 120) b.borrar = true;
+        
+        if(!b.borrar && b.idDueno !== 'BOSS'){
+            // Balas de jugadores contra otros jugadores
             for(let id in jugadores){
                 let j = jugadores[id];
-                if(!j.clase) continue;
-                if(Math.sqrt((b.x-j.x)**2 + (b.y-j.y)**2) < j.radio + 5){
-                    j.hp -= b.dano;
+                if(!j.clase || id === b.idDueno) continue;
+                if(Math.sqrt((b.x-j.x)**2 + (b.y-j.y)**2) < j.radio + 10){
+                    if(!b.esSanadora) {
+                        j.hp -= b.dano;
+                        // NO sobrescribir lastWords - usar mensaje personalizado del usuario
+                    } else {
+                        j.hp = Math.min(j.hp + b.dano, j.maxHp);
+                    }
                     b.borrar = true;
                     io.emit('impacto', { x: b.x, y: b.y, color: j.color });
                     break;
                 }
             }
-        } 
-        else {
+            
+            // Balas de jugadores contra el Jefe
             if(Math.sqrt((b.x-jefe.x)**2 + (b.y-jefe.y)**2) < jefe.radio + 10){
                 jefe.hp -= b.dano;
                 b.borrar = true;
+                
+                // ¡CRÍTICO: Verificar si el jefe muere!
+                if(jefe.hp <= 0) {
+                    // Bonus gigante al jugador que dio el golpe final
+                    if(jugadores[b.idDueno]) {
+                        jugadores[b.idDueno].score += 5000; // Bonus masivo
+                        jugadores[b.idDueno].ganarSkillPoints();
+                        
+                        // Anunciar muerte del jefe
+                        io.emit('mensajeGlobal', {
+                            texto: `¡${jugadores[b.idDueno].nombre || 'Un héroe'} ha derrotado al Jefe!`,
+                            tipo: 'victoria'
+                        });
+                    }
+                    
+                    // Respawn del jefe (más difícil)
+                    jefe.maxHp = Math.round(jefe.maxHp * 1.1); // +10% de HP cada vez
+                    jefe.hp = jefe.maxHp;
+                    jefe.x = 1500;
+                    jefe.y = 1500;
+                    jefe.isFrenzy = false;
+                    jefe.frenzyTimer = 0;
+                    jefe.frenzyCooldown = 0;
+                    
+                    // Efecto visual de respawn
+                    io.emit('impacto', { x: jefe.x, y: jefe.y, color: '#00ff00' });
+                }
+                
                 if(jugadores[b.idDueno]) {
                     // Daño = Puntos: Ganar puntos proporcionales al daño
                     const puntosGanar = Math.floor(b.dano * 2); // 2 puntos por cada 1 de daño
                     jugadores[b.idDueno].score += puntosGanar;
+                    // ¡CRÍTICO: Calcular skill points en tiempo real!
+                    jugadores[b.idDueno].ganarSkillPoints();
                 }
                 io.emit('impacto', { x: b.x, y: b.y, color: jefe.color });
             }
@@ -507,41 +560,46 @@ setInterval(() => {
                     if(id !== b.idDueno && Math.sqrt((b.x-j.x)**2 + (b.y-j.y)**2) < j.radio + 10){
                         j.hp = Math.min(j.hp + b.dano, j.maxHp); 
                         b.borrar = true;
-                        if(jugadores[b.idDueno]) jugadores[b.idDueno].score += 10;
+                        if(jugadores[b.idDueno]) {
+                            jugadores[b.idDueno].score += 10;
+                            // ¡CRÍTICO: Calcular skill points en tiempo real!
+                            jugadores[b.idDueno].ganarSkillPoints();
+                        }
                     }
                 }
             }
         }
-        if(b.borrar) balas.splice(i, 1);
-        
-        // Colisión de balas con muros
-        for(let wall of walls) {
-            if(checkCollision(b.x - b.radio, b.y - b.radio, b.radio*2, b.radio*2, wall.x, wall.y, wall.w, wall.h)) {
-                b.borrar = true;
-                break;
+        // Las balas del Jefe (b.idDueno === 'BOSS') no colisionan con el Jefe
+        // Solo colisionan con jugadores (se maneja en la sección de daño por contacto)
+    }
+    
+    // Actualizar cooldowns
+    for(let id in jugadores){
+        let j = jugadores[id];
+        if(j.clase && j.cooldown > 0) j.cooldown--;
+    }
+    
+    // IA del Jefe
+    jefe.pensar(jugadores);
+    
+    // --- DAÑO POR CONTACTO DEL JEFE ---
+    for(let id in jugadores){
+        let j = jugadores[id];
+        if(j.clase && Math.sqrt((j.x-jefe.x)**2 + (j.y-jefe.y)**2) < j.radio + jefe.radio){
+            if(jefe.isFrenzy) {
+                j.hp = 0; // Muerte instantánea en modo frenesí
+                // NO sobrescribir lastWords - usar mensaje personalizado del usuario
+            } else {
+                j.hp -= 2; // Daño continuo normal
+                // NO sobrescribir lastWords - usar mensaje personalizado del usuario
             }
         }
     }
-
-    // Colisión Jefe vs Jugadores
-    if(jefe.hp > 0) {
-        for(let id in jugadores) {
-            const jugador = jugadores[id];
-            if(!jugador.clase) continue;
-            
-            const dist = Math.hypot(jefe.x - jugador.x, jefe.y - jugador.y);
-            if(dist < (jefe.radio + jugador.radio)) {
-                if(jefe.isFrenzy) {
-                    // Daño letal en modo frenesí
-                    jugador.hp -= 9999;
-                } else {
-                    // Daño por quemadura suave en modo normal
-                    jugador.hp -= 2;
-                }
-            }
-        }
-    }
-
+    
+    // Limpiar entidades
+    balas = balas.filter(b => !b.borrar);
+    
+    // Verificar muertes
     for(let id in jugadores){
         if(jugadores[id].clase && jugadores[id].hp <= 0){
             const muerteX = jugadores[id].x;
@@ -577,9 +635,66 @@ setInterval(() => {
             io.to(id).emit('muerte', "HAS MUERTO");
         }
     }
+}, 1000 / 60); // 60 FPS para físicas
 
-    io.emit('estado', { jugadores, balas, jefe, leaderboard: getTop5Leaderboard() });
-}, 1000 / 20);
+// --- NETWORK LOOP (Envío a 20 Ticks/segundo) ---
+setInterval(() => {
+    // Compresión de Payload: Redondear todos los valores numéricos
+    const compressedState = {
+        jugadores: {},
+        balas: [],
+        jefe: {
+            x: Math.round(jefe.x),
+            y: Math.round(jefe.y),
+            hp: Math.round(jefe.hp),
+            maxHp: jefe.maxHp,
+            radio: jefe.radio,
+            color: jefe.color, // ¡CRÍTICO: Enviar color del jefe!
+            isFrenzy: jefe.isFrenzy,
+            tiempo: jefe.tiempo
+        },
+        leaderboard: getTop5Leaderboard()
+    };
+    
+    // Comprimir jugadores (solo datos dinámicos)
+    for(let id in jugadores) {
+        let j = jugadores[id];
+        if(j.clase) {
+            compressedState.jugadores[id] = {
+                x: Math.round(j.x),
+                y: Math.round(j.y),
+                hp: Math.round(j.hp),
+                maxHp: j.maxHp,
+                radio: j.radio,
+                color: j.color,
+                score: j.score,
+                nombre: j.nombre,
+                clase: j.clase,
+                angle: Math.round(j.angle || 0),
+                skillPoints: j.skillPoints,
+                upgrades: j.upgrades,
+                velocidad: j.velocidad, // ¡CRÍTICO: Enviar velocidad actualizada!
+                maxCooldown: j.maxCooldown, // ¡CRÍTICO: Enviar cooldown actualizado!
+                reloadTime: j.reloadTime // ¡CRÍTICO: Enviar reloadTime sincronizado!
+            };
+        }
+    }
+    
+    // Comprimir balas
+    for(let b of balas) {
+        compressedState.balas.push({
+            x: Math.round(b.x),
+            y: Math.round(b.y),
+            radio: b.radio,
+            color: b.color,
+            angulo: Math.round(b.angulo * 100) / 100, // 2 decimales
+            idDueno: b.idDueno,
+            esSanadora: b.esSanadora
+        });
+    }
+    
+    io.emit('estado', compressedState);
+}, 1000 / 20); // 20 Ticks/segundo para red
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, '0.0.0.0',() => {

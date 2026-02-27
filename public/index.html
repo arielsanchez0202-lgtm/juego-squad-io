@@ -349,6 +349,14 @@
         // Muros del entorno (se recibirán del servidor)
         let walls = [];
         
+        // --- INTERPOLACIÓN LINEAL (LERP) ---
+        // Almacenar posiciones objetivo para entidades remotas
+        let targetPositions = {};
+        
+        function lerp(start, end, t) {
+            return start + (end - start) * t;
+        }
+        
         // --- FUNCIÓN DE COLISIÓN AABB ---
         function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
             return x1 < x2 + w2 &&
@@ -511,10 +519,21 @@
         });
 
         let me = {
+            x: 0,
+            y: 0,
+            hp: 100,
+            maxHp: 100,
+            score: 0,
+            nombre: '',
+            clase: null,
+            radio: 20,
+            velocidad: 3,
+            angle: 0, // ¡CRÍTICO: Inicializar ángulo del cañón!
             lastShotTime: 0,
             visualLastShot: 0,
             reloadTime: 0,
             lastAttempt: 0,
+            lastWords: undefined,
             skillPoints: 0,
             upgrades: {
                 dano: { nivel: 0, max: 5 },
@@ -698,6 +717,13 @@
                     joyStickR.style.top = (joyCyR + ny * clamped - 30) + 'px';
                     if (dist > 5) {
                         mouseAngle = Math.atan2(ny, nx);
+                        me.angle = mouseAngle; // ¡CRÍTICO: Actualizar ángulo visual en móvil!
+                        
+                        // Enviar ángulo al servidor para que otros jugadores vean el cañón
+                        if(jugando && me.clase) {
+                            socket.emit('angulo', mouseAngle);
+                        }
+                        
                         if (!autoFireEnabled) {
                             // Disparo manual solo si autoFire está OFF
                             isShooting = true;
@@ -762,6 +788,12 @@
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
             mouseAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+            me.angle = mouseAngle; // ¡CRÍTICO: Actualizar ángulo visual del jugador local!
+            
+            // Enviar ángulo al servidor para que otros jugadores vean el cañón
+            if(jugando && me.clase) {
+                socket.emit('angulo', mouseAngle);
+            }
         });
 
         canvas.addEventListener('mousedown', e => {
@@ -810,15 +842,19 @@
         }
 
         function tryShoot() {
+            // ¡CRÍTICO: Límite físico absoluto - Sin excepciones!
             const now = Date.now();
             if (!jugando || !me.clase) return;
-            if ((now - (me.lastShotTime || 0)) < (me.reloadTime + 100)) return;
+            const cooldownReal = Math.max(me.reloadTime || 1000, 200); // JAMÁS más rápido que 200ms
+            const tiempoPasado = now - (me.lastShotTime || 0);
+            if (tiempoPasado < cooldownReal) return;
+            me.lastShotTime = now;
             me.visualLastShot = now;
         
             socket.emit('disparar', mouseAngle);
             me.lastAttempt = now;
         }
-
+        
         socket.on('compraOk', () => soundManager.playPowerUp());
         
         socket.on('mapaInfo', (data) => {
@@ -851,6 +887,25 @@
             if (jr) jr.style.display = 'none';
         });
 
+        socket.on('mensajeGlobal', (data) => {
+            // Mostrar mensaje global en pantalla
+            if(data.tipo === 'victoria') {
+                // Efecto especial para victoria
+                soundManager.playPowerUp();
+                screenShake = 20;
+                
+                // Mostrar mensaje flotante
+                mensajesMuerte.push({ 
+                    x: MAPA_W / 2, 
+                    y: 100, 
+                    texto: data.texto, 
+                    vida: 3.0,
+                    color: '#00ff00',
+                    size: 20
+                });
+            }
+        });
+        
         socket.on('mensajeMuerte', (data) => {
             mensajesMuerte.push({ x: data.x, y: data.y - 60, texto: data.texto, vida: 1.0 });
         });
@@ -895,6 +950,29 @@
         // 1. Recepción de datos puros (Ya no dibuja)
         socket.on('estado', estado => {
             serverState = estado;
+            
+            // --- INTERPOLACIÓN LINEAL: Guardar posiciones objetivo ---
+            for(let id in estado.jugadores) {
+                if(id !== socket.id) { // Solo para otros jugadores
+                    if(!targetPositions[id]) {
+                        targetPositions[id] = { x: estado.jugadores[id].x, y: estado.jugadores[id].y };
+                    } else {
+                        targetPositions[id].x = estado.jugadores[id].x;
+                        targetPositions[id].y = estado.jugadores[id].y;
+                    }
+                }
+            }
+            
+            // Guardar posición objetivo del jefe
+            if(estado.jefe) {
+                if(!targetPositions['boss']) {
+                    targetPositions['boss'] = { x: estado.jefe.x, y: estado.jefe.y };
+                } else {
+                    targetPositions['boss'].x = estado.jefe.x;
+                    targetPositions['boss'].y = estado.jefe.y;
+                }
+            }
+            // NOTA: Las balas NO usan interpolación, son proyectiles rápidos
 
             // Sincronización de sonido de balas
             const balasActualesDeMi = new Set();
@@ -930,6 +1008,9 @@
                     me.upgrades = serverMe.upgrades;
                 }
                 
+                // ¡CRÍTICO: Actualizar panel de mejoras en tiempo real!
+                updateUpgradePanel();
+                
                 const needsInit = (typeof me.x === 'undefined') || (typeof me.reloadTime === 'undefined');
                 if (needsInit) {
                     me.x = serverMe.x; me.y = serverMe.y;
@@ -949,6 +1030,9 @@
                     me.score = serverMe.score;
                     me.clase = serverMe.clase;
                     me.velocidad = serverMe.velocidad;
+                    // ¡CRÍTICO: Sincronizar cooldown del servidor!
+                    me.reloadTime = serverMe.reloadTime || 1000; // Usar valor del servidor
+                    
                     if (serverMe.x != null && serverMe.y != null && typeof me.x !== 'undefined' && typeof me.y !== 'undefined') {
                         const dx = serverMe.x - me.x;
                         const dy = serverMe.y - me.y;
@@ -971,7 +1055,13 @@
             const panel = document.getElementById('upgrade-panel');
             const pointsDisplay = document.getElementById('skill-points-display');
             
-            if (me.skillPoints > 0 && jugando && !isDead) {
+            // Calcular si todas las mejoras están al máximo
+            const nivelesComprados = Object.values(me.upgrades).reduce((total, upgrade) => total + upgrade.nivel, 0);
+            const maxNivelesTotales = 20; // 4 estadísticas x 5 niveles
+            const todoMaximizado = nivelesComprados >= maxNivelesTotales;
+            
+            // Mostrar panel solo si hay puntos Y no está todo maximizado
+            if (me.skillPoints > 0 && jugando && !isDead && !todoMaximizado) {
                 panel.style.display = 'block';
                 pointsDisplay.textContent = `Puntos: ${me.skillPoints}`;
                 
@@ -1018,16 +1108,6 @@
             });
         });
 
-        function tryShoot() {
-            const now = Date.now();
-            if (!jugando || !me.clase) return;
-            if ((now - (me.lastShotTime || 0)) < (me.reloadTime + 100)) return;
-        
-            socket.emit('disparar', mouseAngle);
-            me.visualLastShot = now;
-            me.lastAttempt = now;
-        }
-
         // 2. BUCLE DE JUEGO PRINCIPAL (A 60 FPS)
         let lastTime = performance.now();
         function gameLoop(now) {
@@ -1044,12 +1124,28 @@
                 let nextY = me.y;
 
                 if(!isDead) {
-                    if(teclas['w']) nextY -= vEff;
-                    if(teclas['s']) nextY += vEff;
-                    if(teclas['a']) nextX -= vEff;
-                    if(teclas['d']) nextX += vEff;
-                    nextX += vEff * moveAxisX;
-                    nextY += vEff * moveAxisY;
+                    // Movimiento normalizado con trigonometría (independiente de resolución)
+                    let moveX = 0, moveY = 0;
+                    
+                    // Teclas WASD
+                    if(teclas['w']) moveY -= 1;
+                    if(teclas['s']) moveY += 1;
+                    if(teclas['a']) moveX -= 1;
+                    if(teclas['d']) moveX += 1;
+                    
+                    // Joystick móvil
+                    moveX += moveAxisX;
+                    moveY += moveAxisY;
+                    
+                    // Normalizar y aplicar velocidad
+                    if(moveX !== 0 || moveY !== 0) {
+                        const angulo = Math.atan2(moveY, moveX);
+                        const magnitud = Math.sqrt(moveX * moveX + moveY * moveY);
+                        const magnitudNormalizada = Math.min(magnitud, 1); // Limitar a 1
+                        
+                        nextX += Math.cos(angulo) * vEff * magnitudNormalizada;
+                        nextY += Math.sin(angulo) * vEff * magnitudNormalizada;
+                    }
                 }
 
                 nextX = Math.max(me.radio, Math.min(MAPA_W - me.radio, nextX));
@@ -1092,10 +1188,7 @@
                 }
 
                 if(!isDead && (autoFireEnabled || isShooting || isMouseDown)) {
-                    const elapsed = Date.now() - (me.lastShotTime || 0);
-                    if (elapsed >= (Math.max(1, me.reloadTime) + 100)) {
-                        tryShoot();
-                    }
+                    tryShoot(); // tryShoot() ya tiene su propia validación de cooldown
                 }
             }
 
@@ -1113,9 +1206,9 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Cámara centrada en jugador o en punto de muerte
-            const focusX = isDead ? deadX : me.x;
-            const focusY = isDead ? deadY : me.y;
-            if (focusX && focusY) {
+            const focusX = isDead ? deadX : (me.x || MAPA_W / 2);
+            const focusY = isDead ? deadY : (me.y || MAPA_H / 2);
+            if (focusX !== undefined && focusY !== undefined && !isNaN(focusX) && !isNaN(focusY)) {
                 ctx.save();
                 const shakeX = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
                 const shakeY = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
@@ -1145,7 +1238,7 @@
                     ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
                 }
                 
-                // E. DIBUJAR JUGADORES (Con Interpolación)
+                // E. DIBUJAR JUGADORES (Con Interpolación Lineal)
                 for(let id in serverState.jugadores) {
                     let pServer = serverState.jugadores[id];
                     if(!pServer.clase) continue;
@@ -1153,29 +1246,44 @@
                     let renderX, renderY;
 
                     if (id === socket.id) {
-                        // Mi posición es la que predijo mi computadora
+                        // Mi posición es la que predijo mi computadora (sin interpolación)
                         renderX = me.x;
                         renderY = me.y;
                     } else {
-                        // La posición de los demás se interpola suavemente
-                        if (!localEntities[id]) localEntities[id] = {x: pServer.x, y: pServer.y};
-                        localEntities[id].x = lerp(localEntities[id].x, pServer.x, 0.2);
-                        localEntities[id].y = lerp(localEntities[id].y, pServer.y, 0.2);
+                        // --- INTERPOLACIÓN LINEAL PARA OTROS JUGADORES ---
+                        // Inicializar si no existe
+                        if (!localEntities[id]) {
+                            localEntities[id] = { x: pServer.x, y: pServer.y };
+                        }
+                        
+                        // Usar posición objetivo del servidor con interpolación
+                        if(targetPositions[id]) {
+                            localEntities[id].x += (targetPositions[id].x - localEntities[id].x) * 0.3;
+                            localEntities[id].y += (targetPositions[id].y - localEntities[id].y) * 0.3;
+                        } else {
+                            // Fallback sin interpolación - usar posición directa del servidor
+                            localEntities[id].x = pServer.x;
+                            localEntities[id].y = pServer.y;
+                        }
+                        
                         renderX = localEntities[id].x;
                         renderY = localEntities[id].y;
                     }
 
-                    // Dibujar Nave
-                    let img = sprites[pServer.clase];
-                    if(img && img.complete) {
+                    // Dibujo del jugador
+                    if(sprites[pServer.clase] && sprites[pServer.clase].complete) {
                         ctx.save();
                         ctx.translate(renderX, renderY);
-                        if(id === socket.id) { me.angle = mouseAngle; ctx.rotate(me.angle); }
-                        ctx.drawImage(img, -pServer.radio, -pServer.radio, pServer.radio*2, pServer.radio*2);
+                        // Usar ángulo del jugador local para renderizado instantáneo
+                        const angleToUse = (id === socket.id) ? (me.angle || 0) : (pServer.angle || 0);
+                        ctx.rotate(angleToUse);
+                        ctx.drawImage(sprites[pServer.clase], -pServer.radio, -pServer.radio, pServer.radio*2, pServer.radio*2);
                         ctx.restore();
                     } else {
-                        ctx.beginPath(); ctx.arc(renderX, renderY, pServer.radio, 0, Math.PI*2);
-                        ctx.fillStyle = pServer.color; ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(renderX, renderY, pServer.radio, 0, Math.PI*2);
+                        ctx.fillStyle = pServer.color || 'white';
+                        ctx.fill();
                     }
 
                     // Barras de vida
@@ -1206,8 +1314,16 @@
                 let b = serverState.jefe;
                 if(b && b.hp > 0) {
                     if (!localEntities['boss']) localEntities['boss'] = {x: b.x, y: b.y};
-                    localEntities['boss'].x = lerp(localEntities['boss'].x, b.x, 0.15);
-                    localEntities['boss'].y = lerp(localEntities['boss'].y, b.y, 0.15);
+                    
+                    // Usar posición objetivo del servidor con interpolación
+                    if(targetPositions['boss']) {
+                        localEntities['boss'].x += (targetPositions['boss'].x - localEntities['boss'].x) * 0.3;
+                        localEntities['boss'].y += (targetPositions['boss'].y - localEntities['boss'].y) * 0.3;
+                    } else {
+                        // Fallback sin interpolación - usar posición directa del servidor
+                        localEntities['boss'].x = b.x;
+                        localEntities['boss'].y = b.y;
+                    }
 
                     const bossX = localEntities['boss'].x;
                     const bossY = localEntities['boss'].y;
@@ -1271,12 +1387,41 @@
                             ctx.fill();
                         }
                     }
+                    
+                    // BARRA DE VIDA DEL JEFE
+                    const vidaPorcentaje = Math.max(0, Math.min(1, b.hp / b.maxHp));
+                    const barraAncho = 60;
+                    const barraAlto = 8;
+                    const barraX = bossX - barraAncho/2;
+                    const barraY = bossY - bossRadius - 20;
+                    
+                    // Fondo negro
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.fillRect(barraX - 2, barraY - 2, barraAncho + 4, barraAlto + 4);
+                    
+                    // Barra de vida (roja en modo frenesí, verde normal)
+                    ctx.fillStyle = b.isFrenzy ? '#ff3333' : '#27ae60';
+                    ctx.fillRect(barraX, barraY, barraAncho * vidaPorcentaje, barraAlto);
+                    
+                    // Borde blanco
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(barraX, barraY, barraAncho, barraAlto);
+                    
+                    // Texto de vida
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 10px Orbitron, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${Math.round(b.hp)}/${b.maxHp}`, bossX, barraY - 5);
+                    ctx.textAlign = 'left';
                 }
 
-                // F. DIBUJAR BALAS
+                // F. DIBUJAR BALAS (SIN INTERPOLACIÓN - Proyectiles rápidos)
                 serverState.balas.forEach(ba => {
-                    ctx.beginPath(); ctx.arc(ba.x, ba.y, ba.radio, 0, Math.PI*2);
-                    ctx.fillStyle = ba.color; ctx.fill();
+                    ctx.beginPath(); 
+                    ctx.arc(ba.x, ba.y, ba.radio, 0, Math.PI*2);
+                    ctx.fillStyle = ba.color; 
+                    ctx.fill();
                 });
 
                 // G. PARTÍCULAS (al final para que las chispas queden encima de todo)

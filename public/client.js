@@ -225,6 +225,14 @@ function loop() {
         }
     }
 
+    // --- PEGAR ESTO JUSTO ANTES DEL FINAL DEL LOOP ---
+    // 8. INDICADOR DE VERSIÓN (Para confirmar despliegues en Render)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; // Blanco semitransparente
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText("Versión: 1.1 - Motor Predictivo", canvas.width - 20, canvas.height - 20);
+    // ------------------------------------------------
+
     requestAnimationFrame(loop);
 }
 

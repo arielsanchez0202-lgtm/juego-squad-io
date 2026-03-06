@@ -162,7 +162,7 @@ setInterval(() => {
         projectiles,
         bossMarker
     });
-}, 1000 / 30);
+}, 1000 / 20);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

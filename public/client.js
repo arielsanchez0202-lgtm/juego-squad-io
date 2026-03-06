@@ -190,11 +190,19 @@ function loop() {
     // Dibujar Jugadores
     for (const id in gameState.players) {
         const p = gameState.players[id];
+        
         if (id === socket.id && p.hp !== undefined) {
-            // Ajustamos la cámara real si el servidor nos mató/movió
-            player.x = p.x; 
-            player.y = p.y;
+            // SOLUCIÓN AL RUBBER-BANDING:
+            // Solo sincronizamos la posición local con la del servidor si la distancia 
+            // es mayor a 150px (es decir, si el servidor nos mató y nos teletransportó).
+            // Para el movimiento normal, el cliente manda de forma fluida.
+            const dist = Math.hypot(player.x - p.x, player.y - p.y);
+            if (dist > 150) {
+                player.x = p.x; 
+                player.y = p.y;
+            }
         }
+        
         drawPlayer(p.x, p.y, p.radius, p.color, id === socket.id, p.hp, p.maxHp);
     }
 

@@ -50,6 +50,10 @@ io.on('connection', (socket) => {
 
     socket.on('move', (data) => {
         if (players[socket.id]) {
+            // FIX: Si el jugador acaba de morir, ignoramos sus movimientos fantasma del pasado
+            if (players[socket.id].ignoreMovesUntil && Date.now() < players[socket.id].ignoreMovesUntil) {
+                return; 
+            }
             players[socket.id].x = data.x;
             players[socket.id].y = data.y;
         }
@@ -151,6 +155,8 @@ setInterval(() => {
                     p.x = Math.random() * WORLD_SIZE;
                     p.y = Math.random() * WORLD_SIZE;
                     p.hp = p.maxHp;
+                    // FIX: Bloqueamos que el cliente sobrescriba su posición por 500ms
+                    p.ignoreMovesUntil = Date.now() + 500; 
                 }
                 break;
             }

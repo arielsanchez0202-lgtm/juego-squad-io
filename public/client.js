@@ -264,7 +264,7 @@ function loop() {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = '16px Arial';
     ctx.textAlign = 'right';
-    ctx.fillText("Versión: 1.5 - Motor Suave (Interpolación)", canvas.width - 20, canvas.height - 20);
+    ctx.fillText("Versión: 1.6 - Motor Suave (Interpolación)", canvas.width - 20, canvas.height - 20);
 
     requestAnimationFrame(loop);
 }

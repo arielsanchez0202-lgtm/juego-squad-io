@@ -107,14 +107,23 @@ function drawPlayer(x, y, radius, color, isMe, hp, maxHp) {
 function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. MOVIMIENTO LOCAL FLUIDO (Tu cámara)
-    player.x += (mouse.x - (canvas.width / 2)) * player.speed;
-    player.y += (mouse.y - (canvas.height / 2)) * player.speed;
+    // 1. MOVIMIENTO LOCAL FLUIDO (Velocidad Constante Real)
+    const dx = mouse.x - (canvas.width / 2);
+    const dy = mouse.y - (canvas.height / 2);
+    const distMouse = Math.hypot(dx, dy);
+
+    // Solo nos movemos si el mouse no está exactamente en el centro (evita tiritones)
+    if (distMouse > 15) {
+        const angle = Math.atan2(dy, dx);
+        const MAX_SPEED = 6; // Velocidad fija y controlada (¡Ajusta este número si quieres ser más rápido o lento!)
+        player.x += Math.cos(angle) * MAX_SPEED;
+        player.y += Math.sin(angle) * MAX_SPEED;
+    }
+
     player.x = Math.max(0, Math.min(WORLD_SIZE, player.x));
     player.y = Math.max(0, Math.min(WORLD_SIZE, player.y));
 
-    // FIX: Limitamos la red. Solo enviamos datos al servidor cada 50ms (20 FPS).
-    // Tu pantalla sigue a 60 FPS, pero la red descansa.
+    // Susurramos al servidor cada 50ms para no ahogarlo
     if (!player.lastEmit || Date.now() - player.lastEmit > 50) {
         socket.emit('move', { x: player.x, y: player.y });
         player.lastEmit = Date.now();
@@ -255,7 +264,7 @@ function loop() {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = '16px Arial';
     ctx.textAlign = 'right';
-    ctx.fillText("Versión: 1.4 - Motor Suave (Interpolación)", canvas.width - 20, canvas.height - 20);
+    ctx.fillText("Versión: 1.5 - Motor Suave (Interpolación)", canvas.width - 20, canvas.height - 20);
 
     requestAnimationFrame(loop);
 }

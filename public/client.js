@@ -1,10 +1,6 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-// FORZAMOS WEBSOCKETS PUROS: Eliminamos el "HTTP Polling" que causa lag en Render
-const socket = io({
-    transports: ['websocket'],
-    upgrade: false
-});
+const socket = io({ transports: ['websocket'], upgrade: false });
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -27,20 +23,44 @@ window.addEventListener('touchmove', (e) => {
 });
 
 const WORLD_SIZE = 2000;
-// Tu cámara local (Tú mandas, no el servidor)
 const player = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2, radius: 15, speed: 0.1 };
 
-let gameState = {
-    players: {},
-    boss: null,
-    captureZones: [],
-    attackingPlayers: [],
-    projectiles: [],
-    bossMarker: { active: false }
-};
+let gameState = { captureZones: [], attackingPlayers: [], projectiles: [], bossMarker: { active: false }, players: {} };
+
+// Variables para la INTERPOLACIÓN (Movimiento Suave)
+let renderPlayers = {};
+let renderBoss = null;
 
 socket.on('update', (state) => {
     gameState = state;
+
+    // Preparamos a los jugadores para el movimiento suave
+    for (let id in state.players) {
+        if (!renderPlayers[id]) renderPlayers[id] = { ...state.players[id], x: state.players[id].x, y: state.players[id].y };
+        renderPlayers[id].targetX = state.players[id].x;
+        renderPlayers[id].targetY = state.players[id].y;
+        renderPlayers[id].hp = state.players[id].hp;
+        renderPlayers[id].maxHp = state.players[id].maxHp;
+        renderPlayers[id].radius = state.players[id].radius;
+        renderPlayers[id].color = state.players[id].color;
+    }
+    for (let id in renderPlayers) {
+        if (!state.players[id]) delete renderPlayers[id];
+    }
+
+    // Preparamos al jefe para el movimiento suave
+    if (state.boss && state.boss.isAlive) {
+        if (!renderBoss) renderBoss = { ...state.boss, x: state.boss.x, y: state.boss.y };
+        renderBoss.targetX = state.boss.x;
+        renderBoss.targetY = state.boss.y;
+        renderBoss.hp = state.boss.hp;
+        renderBoss.maxHp = state.boss.maxHp;
+        renderBoss.isShielded = state.boss.isShielded;
+        renderBoss.isAlive = state.boss.isAlive;
+        renderBoss.radius = state.boss.radius;
+    } else {
+        renderBoss = null;
+    }
 });
 
 function drawGrid() {
@@ -87,13 +107,12 @@ function drawPlayer(x, y, radius, color, isMe, hp, maxHp) {
 function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. MOVIMIENTO LOCAL FLUIDO (Client-Side Prediction)
+    // 1. MOVIMIENTO LOCAL FLUIDO (Tu cámara)
     player.x += (mouse.x - (canvas.width / 2)) * player.speed;
     player.y += (mouse.y - (canvas.height / 2)) * player.speed;
     player.x = Math.max(0, Math.min(WORLD_SIZE, player.x));
     player.y = Math.max(0, Math.min(WORLD_SIZE, player.y));
 
-    // Avisamos al servidor dónde estamos
     socket.emit('move', { x: player.x, y: player.y });
 
     // 2. DIBUJAR FONDO
@@ -108,9 +127,7 @@ function loop() {
             let occupied = false;
             for (let id in gameState.players) {
                 let p = gameState.players[id];
-                if (p.x > zone.x && p.x < zone.x + zone.size && p.y > zone.y && p.y < zone.y + zone.size) {
-                    occupied = true;
-                }
+                if (p.x > zone.x && p.x < zone.x + zone.size && p.y > zone.y && p.y < zone.y + zone.size) occupied = true;
             }
 
             ctx.strokeStyle = occupied ? '#00ffcc' : '#555';
@@ -122,16 +139,19 @@ function loop() {
         });
     }
 
-    // 4. DIBUJAR JEFE
-    if (gameState.boss && gameState.boss.isAlive) {
-        const drawX = (canvas.width / 2) + (gameState.boss.x - player.x);
-        const drawY = (canvas.height / 2) + (gameState.boss.y - player.y);
+    // 4. DIBUJAR JEFE (Con Interpolación Suave)
+    if (renderBoss) {
+        // MAGIA: Deslizar al jefe a su posición real en lugar de teletransportarlo
+        renderBoss.x += (renderBoss.targetX - renderBoss.x) * 0.3;
+        renderBoss.y += (renderBoss.targetY - renderBoss.y) * 0.3;
 
-        // Láseres
+        const drawX = (canvas.width / 2) + (renderBoss.x - player.x);
+        const drawY = (canvas.height / 2) + (renderBoss.y - player.y);
+
         if (Array.isArray(gameState.attackingPlayers)) {
             gameState.attackingPlayers.forEach(id => {
-                if (gameState.players[id]) {
-                    let p = gameState.players[id];
+                if (renderPlayers[id]) {
+                    let p = renderPlayers[id];
                     const px = id === socket.id ? canvas.width/2 : (canvas.width/2) + (p.x - player.x);
                     const py = id === socket.id ? canvas.height/2 : (canvas.height/2) + (p.y - player.y);
                     
@@ -148,16 +168,14 @@ function loop() {
             });
         }
 
-        // Cuerpo del Jefe
         ctx.beginPath();
-        ctx.arc(drawX, drawY, gameState.boss.radius || 60, 0, Math.PI * 2);
-        ctx.fillStyle = gameState.boss.isShielded ? '#333' : '#ff0055';
+        ctx.arc(drawX, drawY, renderBoss.radius || 60, 0, Math.PI * 2);
+        ctx.fillStyle = renderBoss.isShielded ? '#333' : '#ff0055';
         ctx.fill();
         
-        // Escudo
-        if (gameState.boss.isShielded) {
+        if (renderBoss.isShielded) {
             ctx.beginPath();
-            ctx.arc(drawX, drawY, (gameState.boss.radius || 60) + 15, 0, Math.PI * 2);
+            ctx.arc(drawX, drawY, (renderBoss.radius || 60) + 15, 0, Math.PI * 2);
             ctx.strokeStyle = '#00aaff';
             ctx.lineWidth = 4;
             ctx.shadowBlur = 20;
@@ -165,7 +183,7 @@ function loop() {
             ctx.stroke();
         }
         ctx.shadowBlur = 0;
-        drawBar(drawX, drawY - 40, gameState.boss.hp, gameState.boss.maxHp, 80);
+        drawBar(drawX, drawY - 40, renderBoss.hp, renderBoss.maxHp, 80);
     }
 
     // 5. DIBUJAR MARCADOR (HITO)
@@ -188,9 +206,13 @@ function loop() {
         ctx.fillText("HITO ÉPICO", drawX, drawY - 60);
     }
 
-    // 6. DIBUJAR PROYECTILES
+    // 6. DIBUJAR PROYECTILES (Con Predicción a 60 FPS)
     if (Array.isArray(gameState.projectiles)) {
         gameState.projectiles.forEach(proj => {
+            // MAGIA: Movemos la bala localmente a 60 FPS mientras el servidor respira
+            proj.x += proj.vx * 0.33; 
+            proj.y += proj.vy * 0.33;
+
             const drawX = (canvas.width / 2) + (proj.x - player.x);
             const drawY = (canvas.height / 2) + (proj.y - player.y);
             ctx.beginPath();
@@ -203,39 +225,32 @@ function loop() {
         });
     }
 
-    // 7. DIBUJAR JUGADORES (Con corrección de Respawn real)
-    if (gameState.players) {
-        for (const id in gameState.players) {
-            const p = gameState.players[id];
-            if (!p) continue; // Protección real contra vacíos
+    // 7. DIBUJAR JUGADORES (Con Interpolación Suave)
+    for (const id in renderPlayers) {
+        const p = renderPlayers[id];
 
-            if (id === socket.id) {
-                // Si el servidor dice que estoy MUY lejos (Morí y reaparecí), le hago caso.
-                if (p.x !== undefined && p.y !== undefined) {
-                    const dist = Math.hypot(player.x - p.x, player.y - p.y);
-                    if (dist > 500) { 
-                        player.x = p.x; 
-                        player.y = p.y;
-                    }
-                }
-                // Me dibujo en el centro de MI pantalla
-                drawPlayer(player.x, player.y, p.radius, p.color, true, p.hp, p.maxHp);
-            } else {
-                // Dibujo a los demás relativos a mí
-                if (p.x !== undefined && p.y !== undefined) {
-                    drawPlayer(p.x, p.y, p.radius, p.color, false, p.hp, p.maxHp);
-                }
+        if (id === socket.id) {
+            // Chequeo de teletransporte por muerte (Rubber-banding)
+            if (p.targetX !== undefined && p.targetY !== undefined) {
+                const dist = Math.hypot(player.x - p.targetX, player.y - p.targetY);
+                if (dist > 500) { player.x = p.targetX; player.y = p.targetY; }
+            }
+            drawPlayer(player.x, player.y, p.radius, p.color, true, p.hp, p.maxHp);
+        } else {
+            // MAGIA: Deslizamos a los enemigos suavemente a su posición
+            if (p.targetX !== undefined && p.targetY !== undefined) {
+                p.x += (p.targetX - p.x) * 0.3;
+                p.y += (p.targetY - p.y) * 0.3;
+                drawPlayer(p.x, p.y, p.radius, p.color, false, p.hp, p.maxHp);
             }
         }
     }
 
-    // --- PEGAR ESTO JUSTO ANTES DEL FINAL DEL LOOP ---
-    // 8. INDICADOR DE VERSIÓN (Para confirmar despliegues en Render)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; // Blanco semitransparente
+    // 8. INDICADOR DE VERSIÓN
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = '16px Arial';
     ctx.textAlign = 'right';
-    ctx.fillText("Versión: 1.2 - Motor Predictivo", canvas.width - 20, canvas.height - 20);
-    // ------------------------------------------------
+    ctx.fillText("Versión: 1.3 - Motor Suave (Interpolación)", canvas.width - 20, canvas.height - 20);
 
     requestAnimationFrame(loop);
 }

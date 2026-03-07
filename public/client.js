@@ -113,7 +113,12 @@ function loop() {
     player.x = Math.max(0, Math.min(WORLD_SIZE, player.x));
     player.y = Math.max(0, Math.min(WORLD_SIZE, player.y));
 
-    socket.emit('move', { x: player.x, y: player.y });
+    // FIX: Limitamos la red. Solo enviamos datos al servidor cada 50ms (20 FPS).
+    // Tu pantalla sigue a 60 FPS, pero la red descansa.
+    if (!player.lastEmit || Date.now() - player.lastEmit > 50) {
+        socket.emit('move', { x: player.x, y: player.y });
+        player.lastEmit = Date.now();
+    }
 
     // 2. DIBUJAR FONDO
     drawGrid();
@@ -250,7 +255,7 @@ function loop() {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = '16px Arial';
     ctx.textAlign = 'right';
-    ctx.fillText("Versión: 1.3 - Motor Suave (Interpolación)", canvas.width - 20, canvas.height - 20);
+    ctx.fillText("Versión: 1.4 - Motor Suave (Interpolación)", canvas.width - 20, canvas.height - 20);
 
     requestAnimationFrame(loop);
 }

@@ -1,6 +1,10 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const socket = io();
+// FORZAMOS WEBSOCKETS PUROS: Eliminamos el "HTTP Polling" que causa lag en Render
+const socket = io({
+    transports: ['websocket'],
+    upgrade: false
+});
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -230,7 +234,7 @@ function loop() {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; // Blanco semitransparente
     ctx.font = '16px Arial';
     ctx.textAlign = 'right';
-    ctx.fillText("Versión: 1.1 - Motor Predictivo", canvas.width - 20, canvas.height - 20);
+    ctx.fillText("Versión: 1.2 - Motor Predictivo", canvas.width - 20, canvas.height - 20);
     // ------------------------------------------------
 
     requestAnimationFrame(loop);

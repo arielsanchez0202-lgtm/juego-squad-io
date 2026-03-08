@@ -2,25 +2,230 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Enjambre .io</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmos - Tu Lectura Astral</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #0a0a0c; /* Fondo oscuro profundo */
-            overflow: hidden; /* Cero barras de scroll */
+        body {
+            margin: 0; padding: 0; background-color: #050510; color: #e0e0e0;
+            font-family: 'Georgia', serif; display: flex; justify-content: center;
+            align-items: center; min-height: 100vh; background-image: radial-gradient(circle at center, #1a1a3a 0%, #050510 100%);
         }
-        canvas {
-            display: block;
+        .container {
+            background: rgba(20, 20, 40, 0.8); padding: 30px; border-radius: 20px;
+            box-shadow: 0 0 40px rgba(138, 43, 226, 0.2); width: 90%; max-width: 420px;
+            border: 1px solid rgba(255, 255, 255, 0.1); text-align: center; backdrop-filter: blur(10px);
         }
+        h1 { color: #d4af37; font-size: 28px; font-weight: normal; letter-spacing: 3px; margin-bottom: 5px; }
+        p.subtitle { color: #888; font-style: italic; font-size: 14px; margin-bottom: 25px; }
+        
+        .form-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; color: #aaa; font-size: 13px; letter-spacing: 1px; }
+        input {
+            width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.5); border: 1px solid #444;
+            color: #fff; border-radius: 8px; font-size: 16px; outline: none; box-sizing: border-box;
+        }
+        input:focus { border-color: #d4af37; }
+        
+        button.btn-primary {
+            width: 100%; padding: 15px; background: linear-gradient(45deg, #d4af37, #b8860b);
+            color: #000; border: none; border-radius: 8px; font-size: 16px; font-weight: bold;
+            cursor: pointer; margin-top: 10px; transition: 0.2s;
+        }
+        button.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4); }
+        
+        /* BOTÓN INSTAGRAM/TIKTOK */
+        button.btn-social {
+            width: 100%; padding: 12px; background: linear-gradient(45deg, #833ab4, #fd1d1d, #fcb045); color: #fff; border: none;
+            border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer;
+            margin-top: 15px; transition: 0.2s;
+        }
+        button.btn-social:hover { opacity: 0.9; transform: scale(1.02); }
+
+        #results { display: none; animation: fadeIn 1s ease-in; }
+        
+        /* ESTA ES LA ZONA QUE SE VOLVERÁ FOTO */
+        #captureZone {
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 100%);
+            padding: 20px; border-radius: 15px; border: 2px solid #d4af37;
+            margin-bottom: 20px; position: relative;
+        }
+        
+        .result-card {
+            background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 8px;
+            margin-bottom: 10px; border-left: 3px solid #d4af37; text-align: left;
+        }
+        .result-card h3 { margin: 0 0 5px 0; color: #d4af37; font-size: 12px; text-transform: uppercase; }
+        .result-card p { margin: 0; font-size: 14px; }
+        
+        .daily-message { font-style: italic; color: #fff; text-align: center; margin: 15px 0; font-size: 16px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); }
+        
+        .watermark { font-size: 10px; color: #888; margin-top: 15px; text-transform: uppercase; letter-spacing: 2px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js"></script>
+
+<div class="container" id="mainCard">
+    <div id="inputForm">
+        <h1>COSMOS</h1>
+        <p class="subtitle">Tu destino revelado en segundos</p>
+        
+        <div class="form-group">
+            <label>¿Cuál es tu nombre?</label>
+            <input type="text" id="nameInput" placeholder="Ej. Ariel" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label>Fecha de Nacimiento</label>
+            <input type="date" id="dateInput">
+        </div>
+        
+        <button class="btn-primary" onclick="generateReading()">Revelar mi Carta Astral</button>
+    </div>
+
+    <div id="results">
+        
+        <div id="captureZone">
+            <h1 style="font-size: 22px;">CARTA ASTRAL</h1>
+            <p class="subtitle" id="greetingName" style="color:#fff; margin-bottom: 15px;">Calculando...</p>
+
+            <div class="result-card">
+                <h3>Signo Solar</h3>
+                <p id="zodiacRes"></p>
+            </div>
+            
+            <div class="result-card">
+                <h3>Fase Lunar Base</h3>
+                <p id="moonRes"></p>
+            </div>
+
+            <div class="result-card">
+                <h3>Vibra Musical de Hoy</h3>
+                <p id="musicRes" style="color: #00ffcc; font-weight: bold;">🎵 Calculando...</p>
+            </div>
+
+            <div class="daily-message" id="dailyHoroscope"></div>
+            
+            <div class="watermark">Generado en Cosmos Astral</div>
+        </div>
+
+        <button class="btn-social" onclick="downloadImage()">
+            📸 Descargar Foto para Historia (Insta/TikTok)
+        </button>
+        
+        <button class="btn-primary" style="background: #222; border: 1px dashed #666; color: #aaa;" onclick="alert('Funcionalidad de Lectura Avanzada bloqueada. Aquí iría un formulario largo premium.')">
+            🔓 Desbloquear Lectura Profunda Completa
+        </button>
+
+        <button class="btn-primary" style="margin-top: 15px; background: transparent; border: none; color: #888; font-size: 14px;" onclick="location.reload()">Hacer otra lectura</button>
+    </div>
+</div>
+
+<script>
+    // MAGIA ASTROLÓGICA (Simplificada para el ejemplo)
+    function getZodiacSign(day, month) {
+        if ((month == 1 && day <= 20) || (month == 12 && day >= 22)) return "Capricornio ♑";
+        if ((month == 1 && day >= 21) || (month == 2 && day <= 18)) return "Acuario ♒";
+        if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return "Piscis ♓";
+        if ((month == 3 && day >= 21) || (month == 4 && day <= 19)) return "Aries ♈";
+        if ((month == 4 && day >= 20) || (month == 5 && day <= 20)) return "Tauro ♉";
+        if ((month == 5 && day >= 21) || (month == 6 && day <= 20)) return "Géminis ♊";
+        if ((month == 6 && day >= 21) || (month == 7 && day <= 22)) return "Cáncer ♋";
+        if ((month == 7 && day >= 23) || (month == 8 && day <= 22)) return "Leo ♌";
+        if ((month == 8 && day >= 23) || (month == 9 && day <= 22)) return "Virgo ♍";
+        if ((month == 9 && day >= 23) || (month == 10 && day <= 22)) return "Libra ♎";
+        if ((month == 10 && day >= 23) || (month == 11 && day <= 21)) return "Escorpio ♏";
+        return "Sagitario ♐";
+    }
+
+    function getMoonPhase(year, month, day) {
+        // Algoritmo rápido
+        let r = ((year - 2000) * 11 + month + day) % 30;
+        if (r < 4 || r > 26) return "Luna Nueva 🌑";
+        if (r < 11) return "Cuarto Creciente 🌓";
+        if (r < 19) return "Luna Llena 🌕";
+        return "Cuarto Menguante 🌗";
+    }
+
+    // EL ALGORITMO DE EDAD -> MÚSICA
+    function getSongRecommendation(birthYear, seed) {
+        const currentYear = new Date().getFullYear();
+        const age = currentYear - birthYear;
+        
+        let pool = [];
+        if (age >= 40) {
+            pool = ["La Oreja de Van Gogh - Rosas", "Soda Stereo - De Música Ligera", "Maná - Rayando el Sol", "Chayanne - Torero"];
+        } else if (age >= 25) {
+            pool = ["Coldplay - Yellow", "RBD - Sálvame", "Los Bunkers - Llueve sobre la ciudad", "Shakira - Antología"];
+        } else {
+            pool = ["Bad Bunny - Ojitos Lindos", "Feid - Luna", "Rosalía - Despechá", "Dua Lipa - Levitating"];
+        }
+        
+        // Elegimos una al azar basándonos en su "seed" (Para que no cambie hoy)
+        return pool[seed % pool.length];
+    }
+
+    const barnumPhrases = [
+        "Hoy es un día crucial para confiar en tu intuición más que en la lógica.",
+        "Alguien cercano a ti está pensando en pedirte un consejo importante.",
+        "Una oportunidad se presentará disfrazada de un pequeño inconveniente.",
+        "Es el momento perfecto para dejar ir esa preocupación que te quita el sueño."
+    ];
+
+    function getDailyPhraseIndex(name, dateStr) {
+        const today = new Date().toISOString().split('T')[0]; 
+        const seedString = name.toLowerCase().trim() + dateStr + today;
+        let hash = 0;
+        for (let i = 0; i < seedString.length; i++) {
+            hash = ((hash << 5) - hash) + seedString.charCodeAt(i); hash |= 0; 
+        }
+        return Math.abs(hash);
+    }
+
+    function generateReading() {
+        const name = document.getElementById('nameInput').value;
+        const dateStr = document.getElementById('dateInput').value;
+
+        if (!name || !dateStr) { alert("Necesitamos tus datos para continuar."); return; }
+
+        const date = new Date(dateStr + 'T00:00:00');
+        const day = date.getDate(); const month = date.getMonth() + 1; const year = date.getFullYear();
+        
+        const seed = getDailyPhraseIndex(name, dateStr);
+
+        document.getElementById('zodiacRes').innerText = getZodiacSign(day, month);
+        document.getElementById('moonRes').innerText = getMoonPhase(year, month, day);
+        document.getElementById('musicRes').innerText = `🎵 ${getSongRecommendation(year, seed)}`;
+        document.getElementById('dailyHoroscope').innerText = `"${barnumPhrases[seed % barnumPhrases.length]}"`;
+        document.getElementById('greetingName').innerText = name.toUpperCase();
+
+        document.getElementById('inputForm').style.display = 'none';
+        document.getElementById('results').style.display = 'block';
+    }
+
+    // LA MAGIA DE LA FOTO (HTML2CANVAS)
+    function downloadImage() {
+        const captureZone = document.getElementById('captureZone');
+        const btn = document.querySelector('.btn-social');
+        
+        btn.innerText = "⏳ Generando imagen..."; // Feedback visual
+        
+        html2canvas(captureZone, {
+            backgroundColor: "#0a0a1a", // Fondo oscuro sólido
+            scale: 2 // Alta calidad para Instagram
+        }).then(canvas => {
+            // Creamos un link invisible y forzamos la descarga
+            const link = document.createElement('a');
+            link.download = 'MiCartaCosmos.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            btn.innerText = "✅ ¡Foto descargada! Súbela a tus historias.";
+            setTimeout(() => { btn.innerText = "📸 Descargar Foto para Historia (Insta/TikTok)"; }, 3000);
+        });
+    }
+</script>
+
 </body>
 </html>

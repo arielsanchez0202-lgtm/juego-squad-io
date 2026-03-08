@@ -4,10 +4,7 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*" },
-    transports: ['websocket']
-});
+const io = new Server(server, { cors: { origin: "*" }, transports: ['websocket'] });
 
 app.use(express.static('public'));
 
@@ -15,165 +12,119 @@ const WORLD_SIZE = 2000;
 const players = {};
 let projectiles = [];
 
-let boss = {
-    x: WORLD_SIZE / 2,
-    y: WORLD_SIZE / 2,
-    hp: 10000,
-    maxHp: 10000,
-    radius: 60,
-    isShielded: true,
-    isAlive: true
-};
-
+let boss = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2, hp: 10000, maxHp: 10000, radius: 60, isAlive: true };
 let bossMarker = { active: false, x: 0, y: 0, timer: 0 };
-
-const captureZones = [
-    { x: boss.x - 50, y: boss.y - 250, size: 100 },
-    { x: boss.x - 250, y: boss.y + 150, size: 100 },
-    { x: boss.x + 150, y: boss.y + 150, size: 100 }
-];
-
 let tickCounter = 0;
 
 io.on('connection', (socket) => {
-    console.log(`🟢 Jugador conectado: ${socket.id}`);
-    const randomColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
-    
-    players[socket.id] = {
-        x: Math.random() * WORLD_SIZE,
-        y: Math.random() * WORLD_SIZE,
-        radius: 15,
-        color: randomColor,
-        hp: 100,
-        maxHp: 100
-    };
+    socket.on('join', (playerName) => {
+        const randomColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+        players[socket.id] = {
+            name: playerName.trim().substring(0, 12) || "Anónimo",
+            x: Math.random() * WORLD_SIZE, y: Math.random() * WORLD_SIZE,
+            radius: 15, color: randomColor, hp: 100, maxHp: 100, score: 0,
+            isParrying: false // NUEVO: Estado de bloqueo
+        };
+    });
 
     socket.on('move', (data) => {
         if (players[socket.id]) {
-            // FIX: Si el jugador acaba de morir, ignoramos sus movimientos fantasma del pasado
-            if (players[socket.id].ignoreMovesUntil && Date.now() < players[socket.id].ignoreMovesUntil) {
-                return; 
-            }
+            if (players[socket.id].ignoreMovesUntil && Date.now() < players[socket.id].ignoreMovesUntil) return;
             players[socket.id].x = data.x;
             players[socket.id].y = data.y;
         }
     });
 
-    socket.on('disconnect', () => {
-        console.log(`🔴 Jugador desconectado: ${socket.id}`);
-        delete players[socket.id];
+    // NUEVO: Escuchar cuando el jugador activa el Parry
+    socket.on('parry', (isParrying) => {
+        if (players[socket.id]) players[socket.id].isParrying = isParrying;
     });
+
+    socket.on('disconnect', () => { delete players[socket.id]; });
 });
 
 setInterval(() => {
     tickCounter++;
-    let attackingPlayers = [];
 
     if (boss.isAlive) {
-        // Verificar zonas de captura
-        let zonesOccupied = 0;
-        captureZones.forEach(zone => {
-            let occupied = false;
-            for (let id in players) {
-                let p = players[id];
-                if (p.x > zone.x && p.x < zone.x + zone.size &&
-                    p.y > zone.y && p.y < zone.y + zone.size) {
-                    occupied = true;
-                    break;
-                }
-            }
-            if (occupied) zonesOccupied++;
-        });
-
-        boss.isShielded = (zonesOccupied < 3);
-
-        // Auto-ataque y daño al jefe
-        if (!boss.isShielded) {
-            for (let id in players) {
-                let p = players[id];
-                let dist = Math.hypot(p.x - boss.x, p.y - boss.y);
-                if (dist < 300) {
-                    attackingPlayers.push(id);
-                    boss.hp -= 5;
-                }
-            }
-        }
-
-        // Muerte del jefe
-        if (boss.hp <= 0) {
-            boss.isAlive = false;
-            bossMarker = { active: true, x: boss.x, y: boss.y, timer: 450 }; // 15 segundos muerto
-        }
-
-        // Ataque del jefe (Proyectiles Bullet Hell)
-        if (tickCounter % 15 === 0) {
+        // El Jefe dispara proyectiles (ahora un poco más rápido para probar el Parry)
+        if (tickCounter % 12 === 0) {
             for (let i = 0; i < 8; i++) {
-                let angle = (i * Math.PI / 4) + (tickCounter * 0.1); // Efecto espiral
-                projectiles.push({
-                    x: boss.x,
-                    y: boss.y,
-                    vx: Math.cos(angle) * 8,
-                    vy: Math.sin(angle) * 8,
-                    life: 100
+                let angle = (i * Math.PI / 4) + (tickCounter * 0.1); 
+                projectiles.push({ 
+                    x: boss.x, y: boss.y, 
+                    vx: Math.cos(angle) * 8, vy: Math.sin(angle) * 8, 
+                    life: 150, reflectedBy: null // Saber si la bala fue devuelta
                 });
             }
         }
     } else {
-        // Temporizador para revivir al jefe
         if (bossMarker.active) {
             bossMarker.timer--;
-            if (bossMarker.timer <= 0) {
-                bossMarker.active = false;
-                boss.isAlive = true;
-                boss.hp = boss.maxHp;
-            }
+            if (bossMarker.timer <= 0) { bossMarker.active = false; boss.isAlive = true; boss.hp = boss.maxHp; }
         }
     }
 
-    // Mover proyectiles y procesar colisiones
+    // FÍSICA Y COLISIONES DE PROYECTILES
     for (let i = projectiles.length - 1; i >= 0; i--) {
         let proj = projectiles[i];
-        proj.x += proj.vx;
-        proj.y += proj.vy;
-        proj.life--;
+        proj.x += proj.vx; proj.y += proj.vy; proj.life--;
 
-        if (proj.life <= 0) {
-            projectiles.splice(i, 1);
-            continue;
+        if (proj.life <= 0) { projectiles.splice(i, 1); continue; }
+
+        // 1. ¿La bala rebotada golpeó al Jefe?
+        if (proj.reflectedBy && boss.isAlive) {
+            let distToBoss = Math.hypot(boss.x - proj.x, boss.y - proj.y);
+            if (distToBoss < boss.radius + 5) {
+                boss.hp -= 150; // Daño MASIVO por hacer buen parry
+                if (players[proj.reflectedBy]) players[proj.reflectedBy].score += 50;
+                projectiles.splice(i, 1);
+                if (boss.hp <= 0) {
+                    boss.isAlive = false;
+                    bossMarker = { active: true, x: boss.x, y: boss.y, timer: 450 }; 
+                }
+                continue;
+            }
         }
 
-        // Colisión con jugadores
+        // 2. ¿La bala golpeó a un Jugador?
+        let hitPlayer = false;
         for (let id in players) {
             let p = players[id];
             let dist = Math.hypot(p.x - proj.x, p.y - proj.y);
+            
             if (dist < p.radius + 5) {
-                p.hp -= 20; // Daño al jugador
-                projectiles.splice(i, 1); // Destruir bala
-                
-                // Muerte del jugador (Respawn)
-                if (p.hp <= 0) {
-                    p.x = Math.random() * WORLD_SIZE;
-                    p.y = Math.random() * WORLD_SIZE;
-                    p.hp = p.maxHp;
-                    // FIX: Bloqueamos que el cliente sobrescriba su posición por 500ms
-                    p.ignoreMovesUntil = Date.now() + 500; 
+                if (p.isParrying && proj.reflectedBy !== id) {
+                    // ¡PARRY EXITOSO! Rebotamos la bala hacia atrás más rápido
+                    proj.vx *= -1.5; 
+                    proj.vy *= -1.5;
+                    proj.reflectedBy = id; // La bala ahora es tuya
+                    proj.life = 100; // Renovar vida de la bala
+                } else if (!proj.reflectedBy || proj.reflectedBy !== id) {
+                    // Si no estás haciendo parry y la bala no es tuya, te hace daño
+                    p.hp -= 20; 
+                    hitPlayer = true;
+                    if (p.hp <= 0) {
+                        p.x = Math.random() * WORLD_SIZE; p.y = Math.random() * WORLD_SIZE; p.hp = p.maxHp;
+                        p.ignoreMovesUntil = Date.now() + 500; 
+                    }
                 }
                 break;
             }
         }
+        if (hitPlayer) { projectiles.splice(i, 1); continue; }
     }
 
-    io.emit('update', {
-        players,
-        boss,
-        captureZones,
-        attackingPlayers,
-        projectiles,
-        bossMarker
-    });
+    // Regeneración pasiva
+    if (tickCounter % 20 === 0) {
+        for (let id in players) {
+            let p = players[id];
+            if (p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 5);
+        }
+    }
+
+    io.emit('update', { players, boss, projectiles, bossMarker });
 }, 1000 / 20);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo con Combate en http://localhost:${PORT}`);
-});
+server.listen(PORT, () => { console.log(`🚀 Servidor Prototipo Parry en http://localhost:${PORT}`); });

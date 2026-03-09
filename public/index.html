@@ -2,132 +2,516 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Cosmos - Tu Lectura Astral</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; background-color: #050510; color: #e0e0e0; font-family: 'Georgia', serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-image: radial-gradient(circle at center, #1a1a3a 0%, #050510 100%); }
-        .container { background: rgba(20, 20, 40, 0.8); padding: 30px; border-radius: 20px; box-shadow: 0 0 40px rgba(138, 43, 226, 0.2); width: 90%; max-width: 420px; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center; backdrop-filter: blur(10px); }
-        h1 { color: #d4af37; font-size: 28px; font-weight: normal; letter-spacing: 3px; margin-bottom: 5px; }
-        p.subtitle { color: #888; font-style: italic; font-size: 14px; margin-bottom: 25px; }
+        /* =========================================
+           INTERFAZ (UI) - TOTALMENTE RESPONSIVA SIN SCROLL
+           ========================================= */
+        body { 
+            margin: 0; padding: 0; color: #e0e0e0; font-family: 'Georgia', serif; 
+            display: flex; justify-content: center; align-items: center; 
+            min-height: 100vh; overflow: hidden; position: relative;
+            background: #000000; /* Espacio absoluto sin blancos */
+            height: 100vh; /* Forzar altura completa */
+            width: 100vw; /* Forzar ancho completo */
+            /* Padding para espacio lateral en móviles */
+            padding-left: 0;
+            padding-right: 0;
+            /* Asegurar que no haya espacios blancos */
+            box-sizing: border-box;
+        }
+
+        /* Capa profunda del espacio */
+        .deep-space {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; z-index: -5;
+            background: radial-gradient(ellipse at center, #0a0a2a 0%, #000000 100%);
+            animation: deepSpace 30s ease-in-out infinite alternate;
+        }
+
+        /* Nebulosa lejana */
+        .nebula-far {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; z-index: -4;
+            background: radial-gradient(circle at 20% 80%, rgba(138, 43, 226, 0.03) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(212, 175, 55, 0.02) 0%, transparent 50%),
+                        radial-gradient(circle at 50% 50%, rgba(100, 149, 237, 0.015) 0%, transparent 40%);
+            animation: nebulaFloat 40s ease-in-out infinite alternate;
+            will-change: transform;
+            opacity: 0.4; /* Más transparente para no mostrar el rectángulo */
+        }
+
+        /* Estrellas lejanas (pequeñas y tenues) */
+        .stars-distant {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; z-index: -3;
+            background-image: 
+                radial-gradient(white, rgba(255,255,255,0.8) 0.5px, transparent 1px),
+                radial-gradient(rgba(200,200,255,0.6) 0.3px, transparent 0.8px),
+                radial-gradient(rgba(255,200,200,0.4) 0.4px, transparent 1px);
+            background-size: 150px 150px, 300px 300px, 200px 200px;
+            background-position: 0 0, 50px 50px, 100px 100px;
+            animation: twinkle 8s ease-in-out infinite;
+            will-change: opacity;
+        }
+
+        /* Estrellas medianas (brillantes) */
+        .stars-medium {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; z-index: -2;
+            background-image: 
+                radial-gradient(#ffffff, rgba(255,255,255,0.9) 1px, transparent 2px),
+                radial-gradient(#ffd700, rgba(255,215,0,0.7) 1.5px, transparent 3px),
+                radial-gradient(#87ceeb, rgba(135,206,235,0.6) 0.8px, transparent 1.5px);
+            background-size: 250px 250px, 400px 400px, 180px 180px;
+            background-position: 0 0, 100px 100px, 200px 200px;
+            animation: starsPulse 15s ease-in-out infinite alternate;
+            will-change: transform, opacity;
+        }
+
+        /* Estrellas cercanas (grandes y brillantes) */
+        .stars-close {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; z-index: -1;
+            background-image: 
+                radial-gradient(#ffffff, rgba(255,255,255,1) 2px, transparent 3px),
+                radial-gradient(#d4af37, rgba(212,175,55,0.9) 1.5px, transparent 2.5px),
+                radial-gradient(#ff6b6b, rgba(255,107,107,0.8) 1px, transparent 2px);
+            background-size: 350px 350px, 500px 500px, 280px 280px;
+            background-position: 0 0, 150px 150px, 300px 300px;
+            animation: closeStars 20s ease-in-out infinite alternate;
+            will-change: transform;
+        }
+
+        /* Efecto de brillo espacial mejorado */
+        .space-glow {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; z-index: -6;
+            background: radial-gradient(circle at 50% 50%, rgba(100, 149, 237, 0.05) 0%, transparent 40%);
+            animation: spaceGlow 30s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        /* Rayos de luz sutiles */
+        .light-ray {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; z-index: -7;
+            pointer-events: none;
+        }
+
+        .light-ray::before,
+        .light-ray::after {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 2px; height: 200px;
+            background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform-origin: center top;
+        }
+
+        .light-ray::before {
+            transform: translate(-50%, -50%) rotate(15deg);
+            animation: rayPulse 20s ease-in-out infinite alternate;
+        }
+
+        .light-ray::after {
+            transform: translate(-50%, -50%) rotate(-15deg);
+            animation: rayPulse 20s ease-in-out infinite alternate-reverse;
+        }
+
+        /* =========================================
+           COMETAS Y METEORITOS (EFECTOS ESPECTACULARES)
+           ========================================= */
+        .meteor-shower {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2; overflow: hidden; pointer-events: none;
+        }
+
+        .meteor {
+            position: absolute;
+            width: 2px; height: 2px;
+            background: linear-gradient(45deg, #ffffff, #87ceeb);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(135,206,235,0.4);
+            animation: meteorFall 3s linear infinite;
+            opacity: 0;
+            will-change: transform, opacity, box-shadow;
+        }
+
+        .meteor::before {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 100px; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+
+        /* Múltiples meteoritos con diferentes delays */
+        .meteor:nth-child(1) { top: 15%; left: 85%; animation-delay: 0s; animation-duration: 3s; }
+        .meteor:nth-child(2) { top: 35%; left: 65%; animation-delay: 2s; animation-duration: 3.5s; }
+        .meteor:nth-child(3) { top: 8%; left: 35%; animation-delay: 4s; animation-duration: 2.8s; }
+        .meteor:nth-child(4) { top: 55%; left: 75%; animation-delay: 6s; animation-duration: 3.2s; }
+        .meteor:nth-child(5) { top: 25%; left: 15%; animation-delay: 1.5s; animation-duration: 2.5s; }
+        .meteor:nth-child(6) { top: 70%; left: 45%; animation-delay: 3.5s; animation-duration: 4s; }
+        .meteor:nth-child(7) { top: 40%; left: 88%; animation-delay: 5s; animation-duration: 3.8s; }
+
+        /* =========================================
+           ANIMACIONES (OPTIMIZADAS PARA GPU)
+           ========================================= */
+        @keyframes deepSpace {
+            0% { opacity: 0.9; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.05); }
+        }
+
+        @keyframes nebulaFloat {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+            50% { transform: translate(30px, -20px) rotate(180deg) scale(1.1); }
+            100% { transform: translate(-30px, 20px) rotate(360deg) scale(1); }
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes starsPulse {
+            0% { transform: scale(1) rotate(0deg); opacity: 0.7; }
+            50% { transform: scale(1.1) rotate(180deg); opacity: 1; }
+            100% { transform: scale(1) rotate(360deg); opacity: 0.7; }
+        }
+
+        @keyframes closeStars {
+            0% { transform: scale(1) translateX(0); opacity: 0.8; }
+            50% { transform: scale(1.2) translateX(20px); opacity: 1; }
+            100% { transform: scale(1) translateX(-20px); opacity: 0.8; }
+        }
+
+        @keyframes spaceGlow {
+            0% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 0.6; transform: scale(1.2); }
+            100% { opacity: 0.3; transform: scale(0.8); }
+        }
+
+        @keyframes meteorFall {
+            0% { transform: translateX(0) translateY(-100px) rotate(45deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateX(-800px) translateY(800px) rotate(45deg); opacity: 0; }
+        }
+
+        @keyframes rayPulse {
+            0% { opacity: 0.2; transform: scaleY(0.8); }
+            50% { opacity: 0.4; transform: scaleY(1); }
+            100% { opacity: 0.2; transform: scaleY(0.8); }
+        }
+
+        /* Optimización para móviles */
+        @media (max-width: 768px) {
+            .meteor-shower { display: none; }
+            .nebula-far { opacity: 0.2; } /* Más sutil en móviles */
+            .stars-distant { opacity: 0.7; }
+            .stars-medium { opacity: 0.8; }
+            .stars-close { opacity: 0.9; }
+        }
+
+        /* =========================================
+           INTERFAZ (UI) - TOTALMENTE RESPONSIVA
+           ========================================= */
+        .container { 
+            background: rgba(10, 10, 20, 0.75); padding: 30px; border-radius: 20px; 
+            box-shadow: 0 0 50px rgba(138, 43, 226, 0.3); 
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+            text-align: center; backdrop-filter: blur(10px);
+            z-index: 10; 
+            position: relative;
+            /* Márgenes laterales para pantallas pequeñas */
+            margin: 0 auto;
+            width: 90%; max-width: 420px; 
+            max-height: 90vh; 
+            overflow-y: auto;
+            /* Centrado horizontal */
+            margin-left: auto;
+            margin-right: auto;
+        }
+        @media (max-width: 768px) {
+            .container { 
+                width: 85%; /* Más espacio en los lados */
+                margin-left: 30px;
+                margin-right: 30px;
+                padding: 20px;
+                box-shadow: 0 0 30px rgba(138, 43, 226, 0.2);
+                max-height: 85vh;
+            }
+        }
+        @media (max-width: 480px) {
+            .container { 
+                width: 80%; /* Más espacio en móviles */
+                margin-left: 40px;
+                margin-right: 40px;
+                padding: 15px;
+                box-shadow: 0 0 20px rgba(138, 43, 226, 0.15);
+                max-height: 80vh;
+            }
+        }
+        @media (max-width: 360px) {
+            .container { 
+                width: 75%; /* Máximo espacio en ultra móviles */
+                margin-left: 45px;
+                margin-right: 45px;
+                padding: 12px;
+                max-height: 75vh;
+            }
+        }
+        @media (max-width: 320px) {
+            .container { 
+                width: 70%; /* Para móviles muy pequeños */
+                margin-left: 48px;
+                margin-right: 48px;
+                padding: 10px;
+                max-height: 70vh;
+            }
+        }
+        h1 { color: #d4af37; font-size: 28px; font-weight: normal; letter-spacing: 3px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(212,175,55,0.5); }
+        @media (max-width: 768px) {
+            h1 { font-size: 24px; letter-spacing: 2px; }
+        }
+        @media (max-width: 480px) {
+            h1 { font-size: 20px; letter-spacing: 1px; }
+        }
+        p.subtitle { color: #a0a0b0; font-style: italic; font-size: 14px; margin-bottom: 25px; }
+        @media (max-width: 480px) {
+            p.subtitle { font-size: 12px; margin-bottom: 20px; }
+        }
         .form-group { margin-bottom: 20px; text-align: left; }
-        label { display: block; margin-bottom: 8px; color: #aaa; font-size: 13px; letter-spacing: 1px; }
-        input { width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.5); border: 1px solid #444; color: #fff; border-radius: 8px; font-size: 16px; outline: none; box-sizing: border-box; }
-        input:focus { border-color: #d4af37; }
-        button.btn-primary { width: 100%; padding: 15px; background: linear-gradient(45deg, #d4af37, #b8860b); color: #000; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; }
-        button.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4); }
-        button.btn-social { width: 100%; padding: 12px; background: linear-gradient(45deg, #833ab4, #fd1d1d, #fcb045); color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.2s; }
+        @media (max-width: 480px) {
+            .form-group { margin-bottom: 15px; }
+        }
+        label { display: block; margin-bottom: 8px; color: #bbb; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+        @media (max-width: 480px) {
+            label { font-size: 12px; margin-bottom: 6px; }
+        }
+        input { 
+            width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.6); border: 1px solid #555; 
+            color: #fff; border-radius: 8px; font-size: 16px; outline: none; box-sizing: border-box; transition: 0.3s;
+        }
+        @media (max-width: 768px) {
+            input { font-size: 15px; padding: 10px; }
+        }
+        @media (max-width: 480px) {
+            input { font-size: 14px; padding: 8px; }
+        }
+        input:focus { border-color: #d4af37; box-shadow: 0 0 10px rgba(212,175,55,0.3); }
+        
+        button.btn-primary { 
+            width: 100%; padding: 15px; background: linear-gradient(45deg, #d4af37, #b8860b); 
+            color: #000; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; 
+            cursor: pointer; margin-top: 10px; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;
+        }
+        @media (max-width: 768px) {
+            button.btn-primary { font-size: 15px; padding: 12px; }
+        }
+        @media (max-width: 480px) {
+            button.btn-primary { font-size: 14px; padding: 10px; }
+        }
+        button.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(212, 175, 55, 0.5); }
+        
+        button.btn-social { 
+            width: 100%; padding: 12px; background: linear-gradient(45deg, #833ab4, #fd1d1d, #fcb045); 
+            color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; 
+            cursor: pointer; margin-top: 15px; transition: 0.2s; 
+        }
+        @media (max-width: 768px) {
+            button.btn-social { font-size: 14px; padding: 10px; }
+        }
+        @media (max-width: 480px) {
+            button.btn-social { font-size: 13px; padding: 8px; }
+        }
         button.btn-social:hover { opacity: 0.9; transform: scale(1.02); }
-        #results { display: none; animation: fadeIn 1s ease-in; }
-        #captureZone { background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 100%); padding: 20px; border-radius: 15px; border: 2px solid #d4af37; margin-bottom: 20px; position: relative; }
-        .result-card { background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #d4af37; text-align: left; }
-        .result-card h3 { margin: 0 0 5px 0; color: #d4af37; font-size: 12px; text-transform: uppercase; }
-        .result-card p { margin: 0; font-size: 14px; }
-        .daily-message { font-style: italic; color: #fff; text-align: center; margin: 15px 0; font-size: 16px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); }
-        .watermark { font-size: 10px; color: #888; margin-top: 15px; text-transform: uppercase; letter-spacing: 2px; }
-        .loader { display: none; color: #d4af37; margin-top: 20px; font-style: italic; }
+        
+        #results { display: none; animation: fadeIn 1s ease-in; max-height: 70vh; overflow-y: auto; padding-right: 5px; }
+        @media (max-width: 768px) {
+            #results { max-height: 65vh; }
+        }
+        @media (max-width: 480px) {
+            #results { max-height: 60vh; }
+        }
+        @media (max-width: 360px) {
+            #results { max-height: 55vh; }
+        }
+        #results::-webkit-scrollbar { width: 3px; }
+        #results::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.5); border-radius: 10px; }
+        #results::-webkit-scrollbar-thumb:hover { background: rgba(212, 175, 55, 0.8); }
+        
+        #captureZone { 
+            background: linear-gradient(135deg, 
+                rgba(10, 10, 26, 0.95) 0%, 
+                rgba(15, 15, 35, 0.92) 50%, 
+                rgba(10, 10, 26, 0.95) 100%);
+            border: 2px solid rgba(212, 175, 55, 0.3); 
+            border-radius: 20px; margin-bottom: 15px; padding: 20px;
+            box-shadow: 
+                0 0 30px rgba(138, 43, 226, 0.2),
+                0 0 60px rgba(212, 175, 55, 0.1),
+                inset 0 0 20px rgba(138, 43, 226, 0.05);
+            position: relative;
+            overflow: hidden; /* Evitar que el contenido se salga */
+        }
+        @media (max-width: 768px) {
+            #captureZone { padding: 15px; margin-bottom: 8px; border-radius: 15px; }
+        }
+        @media (max-width: 480px) {
+            #captureZone { padding: 12px; margin-bottom: 6px; border-radius: 12px; }
+        }
+        @media (max-width: 360px) {
+            #captureZone { padding: 10px; margin-bottom: 5px; border-radius: 10px; }
+        }
+        
+        /* Efectos decorativos para la captura - eliminados para captura limpia */
+        #captureZone::before {
+            display: none; /* Eliminar borde dorado que causa problemas */
+        }
+        
+        #captureZone::after {
+            display: none; /* Eliminar borde interno */
+        }
+        .result-card { 
+            background: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 8px; 
+            margin-bottom: 8px; border-left: 3px solid #d4af37; text-align: left; 
+        }
+        @media (max-width: 768px) {
+            .result-card { padding: 8px; margin-bottom: 6px; }
+        }
+        @media (max-width: 480px) {
+            .result-card { padding: 6px; margin-bottom: 5px; }
+        }
+        @media (max-width: 360px) {
+            .result-card { padding: 5px; margin-bottom: 4px; }
+        }
+        .result-card h3 { margin: 0 0 3px 0; color: #d4af37; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;}
+        @media (max-width: 768px) {
+            .result-card h3 { font-size: 10px; }
+        }
+        @media (max-width: 480px) {
+            .result-card h3 { font-size: 9px; }
+        }
+        @media (max-width: 360px) {
+            .result-card h3 { font-size: 8px; }
+        }
+        .result-card p { margin: 0; font-size: 14px; line-height: 1.3; }
+        @media (max-width: 768px) {
+            .result-card p { font-size: 13px; }
+        }
+        @media (max-width: 480px) {
+            .result-card p { font-size: 12px; }
+        }
+        @media (max-width: 360px) {
+            .result-card p { font-size: 11px; }
+        }
+        
+        .daily-message { font-style: italic; color: #fff; text-align: center; margin: 10px 0; font-size: 16px; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); line-height: 1.4; }
+        @media (max-width: 768px) {
+            .daily-message { font-size: 15px; margin: 8px 0; padding: 8px; }
+        }
+        @media (max-width: 480px) {
+            .daily-message { font-size: 14px; margin: 6px 0; padding: 6px; }
+        }
+        @media (max-width: 360px) {
+            .daily-message { font-size: 13px; margin: 5px 0; padding: 5px; }
+        }
+        .watermark { font-size: 10px; color: #666; margin-top: 10px; text-transform: uppercase; letter-spacing: 2px; }
+        @media (max-width: 480px) {
+            .watermark { font-size: 9px; margin-top: 8px; }
+        }
+        @media (max-width: 360px) {
+            .watermark { font-size: 8px; margin-top: 6px; }
+        }
+        .loader { display: none; color: #d4af37; margin-top: 15px; font-style: italic; animation: pulse 1.5s infinite; }
+        @media (max-width: 480px) {
+            .loader { font-size: 14px; margin-top: 12px; }
+        }
+        @media (max-width: 360px) {
+            .loader { font-size: 13px; margin-top: 10px; }
+        }
+        
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
+<div class="deep-space"></div>
+<div class="nebula-far"></div>
+<div class="stars-distant"></div>
+<div class="stars-medium"></div>
+<div class="stars-close"></div>
+<div class="space-glow"></div>
+<div class="light-ray"></div>
+<div class="meteor-shower">
+    <div class="meteor"></div>
+    <div class="meteor"></div>
+    <div class="meteor"></div>
+    <div class="meteor"></div>
+    <div class="meteor"></div>
+    <div class="meteor"></div>
+</div>
+
 <div class="container" id="mainCard">
     <div id="inputForm">
         <h1>COSMOS</h1>
-        <p class="subtitle">Tu destino revelado en segundos</p>
+        <p class="subtitle">El universo tiene un mensaje para ti</p>
         <div class="form-group">
-            <label>¿Cuál es tu nombre?</label>
+            <label>Tu Nombre</label>
             <input type="text" id="nameInput" placeholder="Ej. Ariel" autocomplete="off">
         </div>
         <div class="form-group">
             <label>Fecha de Nacimiento</label>
             <input type="date" id="dateInput">
         </div>
-        <button class="btn-primary" onclick="generateReading()">Revelar mi Carta Astral</button>
+        <button class="btn-primary" onclick="generateReading()">Revelar mi Destino</button>
         <div class="loader" id="loader">Consultando a los astros... 🌌</div>
     </div>
 
     <div id="results">
         <div id="captureZone">
-            <h1 style="font-size: 22px;">CARTA ASTRAL</h1>
-            <p class="subtitle" id="greetingName" style="color:#fff; margin-bottom: 15px;"></p>
+            <div style="text-align: center; margin-bottom: 15px;">
+                <div style="display: inline-block; background: linear-gradient(45deg, #d4af37, #b8860b); color: #000; padding: 6px 15px; border-radius: 20px; font-weight: bold; letter-spacing: 1px; font-size: 16px; text-transform: uppercase; box-shadow: 0 3px 12px rgba(212, 175, 55, 0.4);">
+                    ✨ LECTURA CÓSMICA ✨
+                </div>
+            </div>
+            <p class="subtitle" id="greetingName" style="color:#fff; margin-bottom: 15px; font-size: 14px; text-shadow: 0 2px 8px rgba(212,175,55,0.3);"></p>
 
-            <div class="result-card">
-                <h3>Signo y Luna</h3>
-                <p><span id="zodiacRes"></span> | <span id="moonRes"></span></p>
+            <div class="result-card" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid #d4af37;">
+                <h3 style="color: #ffd700; text-shadow: 0 1px 4px rgba(255, 215, 0, 0.3); font-size: 10px;">🌟 Esencia Astral</h3>
+                <p style="font-size: 14px; font-weight: 600;"><span id="zodiacRes" style="color: #fff; text-shadow: 0 0 4px rgba(212, 175, 55, 0.5);"></span> | <span id="moonRes" style="color: #e0e0e0; text-shadow: 0 0 4px rgba(135, 206, 235, 0.3);"></span></p>
             </div>
 
-            <div class="result-card">
-                <h3>Carta del Tarot del Día</h3>
-                <p style="font-weight: bold; color: #b8860b;" id="tarotName"></p>
-                <p style="font-size: 13px; color: #ccc; margin-top: 4px;" id="tarotMeaning"></p>
+            <div class="result-card" style="background: rgba(138, 43, 226, 0.1); border-left: 3px solid #8a2be2;">
+                <h3 style="color: #ff6b6b; text-shadow: 0 1px 4px rgba(255, 107, 107, 0.3); font-size: 10px;">🎴 Tarot del Día</h3>
+                <p style="font-weight: bold; color: #d4af37; font-size: 15px; text-shadow: 0 0 4px rgba(212, 175, 55, 0.4);" id="tarotName"></p>
+                <p style="font-size: 12px; color: #b0b0b0; margin-top: 6px; font-style: italic; line-height: 1.3;" id="tarotMeaning"></p>
             </div>
 
-            <div class="result-card">
-                <h3>Vibra Musical</h3>
-                <p id="musicRes" style="color: #00ffcc; font-weight: bold;"></p>
+            <div class="result-card" style="background: rgba(0, 255, 127, 0.1); border-left: 3px solid #00ff7f;">
+                <h3 style="color: #00ffff; text-shadow: 0 1px 4px rgba(0, 255, 255, 0.3); font-size: 10px;">🎵 Vibra Musical</h3>
+                <p id="musicRes" style="color: #00ffcc; font-weight: bold; font-size: 14px; text-shadow: 0 0 4px rgba(0, 255, 204, 0.4);"></p>
             </div>
 
-            <div class="daily-message" id="dailyHoroscope"></div>
-            <div class="watermark">Generado en Cosmos Astral</div>
+            <div class="daily-message" id="dailyHoroscope" style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.1), rgba(138, 43, 226, 0.1)); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 3px 12px rgba(212, 175, 55, 0.2); margin: 8px 0; padding: 8px; font-size: 14px;"></div>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <div style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(212, 175, 55, 0.3); padding: 6px 12px; border-radius: 15px; backdrop-filter: blur(5px);">
+                    <span style="font-size: 9px; color: #d4af37; letter-spacing: 2px; font-weight: bold;">🌌 COSMOS ASTRALES</span>
+                    <div style="font-size: 8px; color: #888; margin-top: 3px; letter-spacing: 1px;">Generado el <span id="generationDate"></span></div>
+                </div>
+            </div>
         </div>
 
-        <button class="btn-social" onclick="downloadImage()">📸 Descargar Foto para Historia</button>
-        <button class="btn-primary" style="background: #222; border: 1px dashed #666; color: #aaa;" onclick="alert('Opción Premium Bloqueada.')">🔓 Desbloquear Lectura Profunda</button>
-        <button class="btn-primary" style="margin-top: 15px; background: transparent; border: none; color: #888; font-size: 14px;" onclick="location.reload()">Hacer otra lectura</button>
+        <button class="btn-social" onclick="shareReading()">📸 Descargar Foto</button>
+        <button class="btn-social" style="margin-top: 10px; background: linear-gradient(45deg, #25D366, #128C7E, #25D366);" onclick="shareToWhatsApp()">📱 Compartir por WhatsApp</button>
+        <button class="btn-primary" style="margin-top: 15px; background: rgba(0,0,0,0.5); border: 1px solid #555; color: #aaa; font-size: 13px;" onclick="newReading()">Hacer otra lectura</button>
     </div>
 </div>
 
-<script>
-    async function generateReading() {
-        const name = document.getElementById('nameInput').value;
-        const dateStr = document.getElementById('dateInput').value;
-        
-        if (!name || !dateStr) { alert("Necesitamos tus datos para continuar."); return; }
-
-        document.getElementById('loader').style.display = 'block';
-
-        try {
-            const response = await fetch('/api/leer-destino', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, dateStr })
-            });
-            
-            const data = await response.json();
-
-            document.getElementById('zodiacRes').innerText = data.zodiac;
-            document.getElementById('moonRes').innerText = data.moon;
-            document.getElementById('musicRes').innerText = `🎵 ${data.music}`;
-            document.getElementById('dailyHoroscope').innerText = `"${data.phrase}"`;
-            
-            document.getElementById('tarotName').innerText = data.tarotName;
-            document.getElementById('tarotMeaning').innerText = `"${data.tarotMeaning}"`;
-            
-            document.getElementById('greetingName').innerText = name.toUpperCase();
-
-            document.getElementById('inputForm').style.display = 'none';
-            document.getElementById('results').style.display = 'block';
-        } catch (error) {
-            alert("Los astros están desalineados. Error de conexión.");
-            document.getElementById('loader').style.display = 'none';
-        }
-    }
-
-    function downloadImage() {
-        const captureZone = document.getElementById('captureZone');
-        const btn = document.querySelector('.btn-social');
-        btn.innerText = "⏳ Generando imagen...";
-        html2canvas(captureZone, { backgroundColor: "#0a0a1a", scale: 2 }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = 'MiCartaCosmos.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            btn.innerText = "✅ ¡Foto descargada!";
-            setTimeout(() => { btn.innerText = "📸 Descargar Foto para Historia"; }, 3000);
-        });
-    }
-</script>
+<script src="client.js"></script>
 
 </body>
 </html>

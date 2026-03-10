@@ -186,27 +186,22 @@ async function shareReading() {
     }
 }
 
-// Función para compartir por WhatsApp
+// Función para compartir por WhatsApp (Con tu link)
 function shareToWhatsApp() {
     if (!currentReading) return;
     
     try {
-        // Crear mensaje formateado
+        const urlSitio = "https://squad-io-ariel.onrender.com"; 
+
         const message = `✨ *LECTURA CÓSMICA DE ${currentReading.name?.toUpperCase() || 'TÍ'}* ✨\n\n` +
-            `🌟 *Esencia Astral*: ${currentReading.zodiac} | ${currentReading.moon}\n\n` +
+            `🌟 *Esencia Astral*: ${currentReading.zodiac} | ${currentReading.moon}\n` +
             `🎴 *Tarot del Día*: ${currentReading.tarotName}\n` +
-            `📖 *Significado*: ${currentReading.tarotMeaning}\n\n` +
             `🎵 *Vibra Musical*: ${currentReading.music}\n\n` +
             `💫 *Mensaje del Cosmos*: "${currentReading.phrase}"\n\n` +
-            `🌌 *Generado en*: ${new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}\n\n` +
-            `🔮 *Descubre tu destino en Cosmos Astrales*`;
+            `🔮 *Descubre tu propio destino aquí*: ${urlSitio}`;
         
-        // Codificar mensaje para URL
         const encodedMessage = encodeURIComponent(message);
-        
-        // Abrir WhatsApp con el mensaje
-        const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
-        window.open(whatsappUrl, '_blank');
+        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
         
     } catch (error) {
         console.error('Error al compartir por WhatsApp:', error);
@@ -222,6 +217,27 @@ function newReading() {
     inputForm.style.display = 'block';
     nameInput.value = '';
     dateInput.value = '';
+}
+
+// --- FUNCIONES DE MONETIZACIÓN ---
+
+// Opción A: Venta Directa por WhatsApp
+function requestPremiumReading() {
+    if (!currentReading) return;
+    
+    const tuNumero = "56966959800"; 
+    
+    const text = `Hola! Vengo de Cosmos ✨. Me gustaría solicitar mi Carta Astral Profunda y Personalizada por $5.000. Mi nombre es ${currentReading.name} y nací el ${document.getElementById('dateInput').value}. ¿Cuáles son los datos para transferir?`;
+    
+    const encoded = encodeURIComponent(text);
+    window.open(`https://wa.me/${tuNumero}?text=${encoded}`, '_blank');
+}
+
+// Opción B: Propina / Café
+function sendTip() {
+    // AQUÍ PONDRÁS TU LINK DE MERCADOPAGO, MACH O KO-FI
+    const linkPropina = "https://link.mercadopago.cl/tu-link-aqui"; 
+    window.open(linkPropina, '_blank');
 }
 
 // Inicialización

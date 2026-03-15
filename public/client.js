@@ -186,12 +186,12 @@ async function shareReading() {
     }
 }
 
-// Función para compartir por WhatsApp (Con tu link)
+// Función para compartir por WhatsApp
 function shareToWhatsApp() {
     if (!currentReading) return;
     
     try {
-        const urlSitio = "https://squad-io-ariel.onrender.com"; 
+        const urlSitio = "https://cosmos-astral.onrender.com"; 
 
         const message = `✨ *LECTURA CÓSMICA DE ${currentReading.name?.toUpperCase() || 'TÍ'}* ✨\n\n` +
             `🌟 *Esencia Astral*: ${currentReading.zodiac} | ${currentReading.moon}\n` +
@@ -235,8 +235,7 @@ function requestPremiumReading() {
 
 // Opción B: Propina / Café
 function sendTip() {
-    // AQUÍ PONDRÁS TU LINK DE MERCADOPAGO, MACH O KO-FI
-    const linkPropina = "https://link.mercadopago.cl/tu-link-aqui"; 
+    const linkPropina = "https://ko-fi.com/cosmosastral"; 
     window.open(linkPropina, '_blank');
 }
 
@@ -248,6 +247,52 @@ document.addEventListener('DOMContentLoaded', () => {
     
     console.log('🌌 Aplicación Cosmos lista con fondo espacial espectacular');
 });
+
+// --- SISTEMA DE SUGERENCIAS (FEEDBACK) ---
+function openFeedback() {
+    document.getElementById('feedbackModal').style.display = 'flex';
+}
+
+function closeFeedback() {
+    document.getElementById('feedbackModal').style.display = 'none';
+}
+
+async function submitFeedback(event) {
+    event.preventDefault(); // Evita que la página recargue
+    
+    const btn = document.getElementById('feedbackSubmitBtn');
+    const text = document.getElementById('feedbackText').value;
+    const originalText = btn.innerText;
+    
+    btn.innerText = "⏳ Enviando...";
+    btn.disabled = true;
+
+    try {
+        const formspreeLink = "https://formspree.io/f/mykndkpl"; 
+
+        await fetch(formspreeLink, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sugerencia: text })
+        });
+
+        btn.innerText = "✅ ¡Gracias por tu idea!";
+        btn.style.background = "linear-gradient(45deg, #25D366, #128C7E)"; // Se pone verde
+        
+        setTimeout(() => {
+            closeFeedback();
+            document.getElementById('feedbackText').value = ''; // Limpiamos la caja
+            btn.innerText = originalText;
+            btn.style.background = ""; // Vuelve a dorado
+            btn.disabled = false;
+        }, 2000);
+
+    } catch (error) {
+        alert("Hubo un error al enviar tu sugerencia. Intenta de nuevo más tarde.");
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
 
 // Exportar funciones para uso global
 window.generateReading = generateReading;

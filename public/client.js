@@ -1,5 +1,13 @@
 // CLIENTE OPTIMIZADO PARA APLICACIÓN DE TAROT/ASTROLOGÍA
 
+// --- UTILIDADES DE DETECCIÓN ---
+
+// Detectar si el usuario está en Instagram WebView
+function isInstagramWebView() {
+    const userAgent = navigator.userAgent.toLowerCase();
+    return userAgent.includes('instagram') || userAgent.includes('igweb');
+}
+
 // Elementos del DOM
 const mainCard = document.getElementById('mainCard');
 const inputForm = document.getElementById('inputForm');
@@ -133,7 +141,7 @@ async function shareReading() {
         const captureZone = document.getElementById('captureZone');
         const btn = document.querySelector('.btn-social');
         const originalText = btn.innerText;
-        btn.innerText = "⏳ Generando magia...";
+        btn.innerText = "Generando magia...";
         
         // Resetear scroll completamente
         document.getElementById('results').scrollTop = 0;
@@ -165,8 +173,14 @@ async function shareReading() {
             foreignObjectRendering: false
         });
         
-        // Convertir y descargar
-        canvas.toBlob((blob) => {
+        // Convertir canvas a blob
+        const blob = await new Promise(resolve => canvas.toBlob(resolve));
+        
+        // Detectar si estamos en Instagram WebView
+        const isInstagram = isInstagramWebView();
+        
+        if (!isInstagram) {
+            // Flujo normal para navegadores estándar
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -174,16 +188,124 @@ async function shareReading() {
             a.click();
             URL.revokeObjectURL(url);
             
-            btn.innerText = "✅ ¡Lista para subir!";
+            btn.innerText = "¡Lista para subir!";
             setTimeout(() => { btn.innerText = originalText; }, 3000);
-        });
+        } else {
+            // Flujo especial para Instagram WebView
+            await handleInstagramShare(blob, btn, originalText);
+        }
         
     } catch (error) {
         console.error('Error al compartir:', error);
         alert('Error al generar imagen para compartir');
         const btn = document.querySelector('.btn-social');
-        btn.innerText = "📸 Descargar Foto para Historia";
+        btn.innerText = "Descargar Foto para Historia";
     }
+}
+
+// Manejar compartido en Instagram WebView
+async function handleInstagramShare(blob, btn, originalText) {
+    try {
+        // Intentar usar navigator.share() primero
+        if (navigator.share && navigator.canShare) {
+            const file = new File([blob], 'MiLecturaCosmos.png', { type: 'image/png' });
+            
+            if (navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    title: 'Mi Lectura Cósmica',
+                    text: '¡Mira mi lectura astral personalizada!',
+                    files: [file]
+                });
+                
+                btn.innerText = "¡Compartido con éxito!";
+                setTimeout(() => { btn.innerText = originalText; }, 3000);
+                return;
+            }
+        }
+        
+        // Si navigator.share falla, mostrar imagen para descarga manual
+        showImageForManualDownload(blob, btn, originalText);
+        
+    } catch (error) {
+        console.log('navigator.share falló, mostrando imagen para descarga manual:', error);
+        showImageForManualDownload(blob, btn, originalText);
+    }
+}
+
+// Mostrar imagen para descarga manual en Instagram
+function showImageForManualDownload(blob, btn, originalText) {
+    const url = URL.createObjectURL(blob);
+    
+    // Crear modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        padding: 20px;
+        box-sizing: border-box;
+    `;
+    
+    // Crear imagen
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = `
+        max-width: 90%;
+        max-height: 70%;
+        border-radius: 10px;
+        box-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
+        margin-bottom: 20px;
+    `;
+    
+    // Crear mensaje de instrucción
+    const message = document.createElement('div');
+    message.style.cssText = `
+        color: #d4af37;
+        text-align: center;
+        font-size: 16px;
+        margin-bottom: 20px;
+        line-height: 1.4;
+    `;
+    message.innerHTML = `
+        <div style="margin-bottom: 10px;">¡Descarga directa bloqueada por Instagram</div>
+        <div style="font-size: 14px; color: #aaa;">Mantén presionada esta imagen por 2 segundos para guardarla en tu galería</div>
+    `;
+    
+    // Crear botón de cerrar
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Cerrar';
+    closeBtn.style.cssText = `
+        background: linear-gradient(45deg, #d4af37, #b8860b);
+        color: #000;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+    `;
+    
+    closeBtn.onclick = () => {
+        document.body.removeChild(modal);
+        URL.revokeObjectURL(url);
+        btn.innerText = originalText;
+    };
+    
+    // Ensamblar modal
+    modal.appendChild(img);
+    modal.appendChild(message);
+    modal.appendChild(closeBtn);
+    document.body.appendChild(modal);
+    
+    // Actualizar texto del botón principal
+    btn.innerText = "Mantén presionada la imagen";
 }
 
 // Función para compartir por WhatsApp
@@ -193,15 +315,27 @@ function shareToWhatsApp() {
     try {
         const urlSitio = "https://cosmos-astral.onrender.com"; 
 
-        const message = `✨ *LECTURA CÓSMICA DE ${currentReading.name?.toUpperCase() || 'TÍ'}* ✨\n\n` +
-            `🌟 *Esencia Astral*: ${currentReading.zodiac} | ${currentReading.moon}\n` +
-            `🎴 *Tarot del Día*: ${currentReading.tarotName}\n` +
-            `🎵 *Vibra Musical*: ${currentReading.music}\n\n` +
-            `💫 *Mensaje del Cosmos*: "${currentReading.phrase}"\n\n` +
-            `🔮 *Descubre tu propio destino aquí*: ${urlSitio}`;
+        // Construir mensaje con emojis y formato robusto
+        const message = `¡Hola! ${currentReading.name?.toUpperCase() || 'TÍ'} te comparte tu Lectura Cósmica personalizada:\n\n` +
+            `Zodiaco: ${currentReading.zodiac}\n` +
+            `Luna: ${currentReading.moon}\n` +
+            `Tarot: ${currentReading.tarotName}\n` +
+            `Mensaje: "${currentReading.phrase}"\n\n` +
+            `Obtén la tuya en: ${urlSitio}`;
         
-        const encodedMessage = encodeURIComponent(message);
-        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+        // Encoding robusto para Instagram WebView y emojis
+        let encodedMessage;
+        try {
+            // Primero intentamos encoding normal
+            encodedMessage = encodeURIComponent(message);
+        } catch (encodingError) {
+            // Fallback para caracteres problemáticos
+            encodedMessage = encodeURIComponent(message.replace(/[^\x00-\x7F]/g, '?'));
+        }
+        
+        // Abrir WhatsApp con URL segura
+        const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+        window.open(whatsappUrl, '_blank');
         
     } catch (error) {
         console.error('Error al compartir por WhatsApp:', error);

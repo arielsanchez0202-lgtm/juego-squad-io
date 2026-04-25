@@ -8,6 +8,17 @@ function isInstagramWebView() {
     return userAgent.includes('instagram') || userAgent.includes('igweb');
 }
 
+// Eliminar emojis de un texto (para WhatsApp)
+function removeEmojis(text) {
+    if (!text) return text;
+    
+    // Regex moderna para eliminar todos los emojis y caracteres pictográficos
+    const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}\p{Emoji}\u200D\uFE0F\uFE0F]/gu;
+    
+    // Eliminar emojis y espacios extra al final
+    return text.replace(emojiRegex, '').trim();
+}
+
 // Elementos del DOM
 const mainCard = document.getElementById('mainCard');
 const inputForm = document.getElementById('inputForm');
@@ -275,8 +286,8 @@ function showImageForManualDownload(blob, btn, originalText) {
         line-height: 1.4;
     `;
     message.innerHTML = `
-        <div style="margin-bottom: 10px;">¡Descarga directa bloqueada por Instagram</div>
-        <div style="font-size: 14px; color: #aaa;">Mantén presionada esta imagen por 2 segundos para guardarla en tu galería</div>
+        <div style="margin-bottom: 10px;">⚠️ ¡Descarga directa bloqueada por Instagram!</div>
+        <div style="font-size: 14px; color: #aaa;">📸 Saca un pantallazo (captura de pantalla) para guardar tu lectura y compartir tu resultado.</div>
     `;
     
     // Crear botón de cerrar
@@ -315,15 +326,14 @@ function shareToWhatsApp() {
     try {
         const urlSitio = "https://cosmos-astral.onrender.com"; 
 
-        // Construir mensaje con emojis y formato robusto
-        const message = `¡Hola! ${currentReading.name?.toUpperCase() || 'TÍ'} te comparte tu Lectura Cósmica personalizada:\n\n` +
-            `Zodiaco: ${currentReading.zodiac}\n` +
-            `Luna: ${currentReading.moon}\n` +
-            `Tarot: ${currentReading.tarotName}\n` +
-            `Mensaje: "${currentReading.phrase}"\n\n` +
-            `Obtén la tuya en: ${urlSitio}`;
+        // Construir mensaje aplicando removeEmojis() a variables dinámicas
+        const message = `Mira mi resultado en Cosmos Astral! Mi nombre es ${removeEmojis(currentReading.name?.toUpperCase() || 'TI')}. ` +
+            `Mi zodiaco es ${removeEmojis(currentReading.zodiac)}, mi luna es ${removeEmojis(currentReading.moon)}, ` +
+            `mi tarot es ${removeEmojis(currentReading.tarotName)} con el mensaje: "${removeEmojis(currentReading.phrase)}". ` +
+            `Mi vibra musical es ${removeEmojis(currentReading.music)}. ` +
+            `Descubre tu destino en: ${urlSitio}`;
         
-        // Encoding robusto para Instagram WebView y emojis
+        // Encoding robusto para Instagram WebView
         let encodedMessage;
         try {
             // Primero intentamos encoding normal
@@ -361,7 +371,7 @@ function requestPremiumReading() {
     
     const tuNumero = "56966959800"; 
     
-    const text = `Hola! Vengo de Cosmos ✨. Me gustaría solicitar mi Carta Astral Profunda y Personalizada por $5.000. Mi nombre es ${currentReading.name} y nací el ${document.getElementById('dateInput').value}. ¿Cuáles son los datos para transferir?`;
+    const text = `Hola! Vengo de Cosmos ✨. Me gustaría solicitar mi Carta Astral Profunda y Personalizada por $1.200. Mi nombre es ${currentReading.name} y nací el ${document.getElementById('dateInput').value}. ¿Cuáles son los datos para transferir?`;
     
     const encoded = encodeURIComponent(text);
     window.open(`https://wa.me/${tuNumero}?text=${encoded}`, '_blank');

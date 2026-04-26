@@ -13,7 +13,10 @@ const tarotDB = {
         { card: "El Sol ☀️", meaning: "Éxito radiante, vitalidad y claridad absoluta en tus proyectos." },
         { card: "As de Oros 🪙", meaning: "Una nueva oportunidad financiera brillante está tocando tu puerta." },
         { card: "Nueve de Oros 🍇", meaning: "Independencia financiera, lujo y disfrutar los frutos de tu trabajo." },
-        { card: "Ocho de Bastos ☄️", meaning: "Movimiento rápido, noticias urgentes y progreso sin demoras." }
+        { card: "Ocho de Bastos ☄️", meaning: "Movimiento rápido, noticias urgentes y progreso sin demoras." },
+        { card: "Diez de Oros 🏰", meaning: "Construcción de un legado sólido. Riqueza a largo plazo y seguridad familiar." },
+        { card: "Rey de Oros 👑", meaning: "Mente maestra para los negocios. Inversiones seguras que rinden frutos." },
+        { card: "Seis de Bastos 🏆", meaning: "Reconocimiento público, aplausos y validación por tu arduo esfuerzo." }
     ],
     love: [
         { card: "Los Enamorados ❤️", meaning: "Decisiones importantes desde el corazón y alineación de almas." },
@@ -21,7 +24,11 @@ const tarotDB = {
         { card: "Dos de Copas 🥂", meaning: "Conexión profunda, alianzas verdaderas y reciprocidad emocional." },
         { card: "Caballero de Copas 🏇💖", meaning: "Llegada de una invitación romántica o una propuesta honesta." },
         { card: "As de Copas 🌊", meaning: "Desborde de emociones, nuevos amores o un despertar espiritual." },
-        { card: "Diez de Copas 🌈", meaning: "Armonía total, felicidad en tu círculo íntimo y paz." }
+        { card: "Diez de Copas 🌈", meaning: "Armonía total, felicidad en tu círculo íntimo y paz." },
+        { card: "Tres de Copas 💃", meaning: "Celebración, reencuentros valiosos y energía social vibrante." },
+        { card: "Reina de Copas 🧜‍♀️", meaning: "Intuición emocional al máximo. Alguien te cuidará con profunda devoción." },
+        { card: "Cuatro de Bastos ⛺", meaning: "Estabilidad en pareja, compromiso formal o mudanza compartida." },
+        { card: "El Mundo 🌍", meaning: "Un ciclo afectivo se completa de manera perfecta. Plenitud total." }
     ],
     healing: [
         { card: "La Estrella ⭐", meaning: "Esperanza, inspiración y sanación espiritual profunda." },
@@ -29,7 +36,11 @@ const tarotDB = {
         { card: "La Templanza ⚖️", meaning: "Equilibrio, paciencia, alquimia emocional y moderación." },
         { card: "El Colgado 🧘", meaning: "Cambio de perspectiva, soltar el control y encontrar la paz." },
         { card: "Cuatro de Espadas 🛏️", meaning: "Necesidad de descanso, retiro temporal y recuperación mental." },
-        { card: "Seis de Espadas 🛶", meaning: "Transición hacia aguas más calmadas, dejando atrás la tormenta." }
+        { card: "Seis de Espadas 🛶", meaning: "Transición hacia aguas más calmadas, dejando atrás la tormenta." },
+        { card: "La Torre ⚡", meaning: "Derrumbe de viejas estructuras limitantes para construir sobre bases reales." },
+        { card: "Ocho de Copas 🚶", meaning: "Alejarse de lo que ya no te llena emocionalmente buscando un propósito mayor." },
+        { card: "Tres de Espadas 🌧️", meaning: "Liberación de un dolor antiguo. La herida sana al dejarla respirar." },
+        { card: "El Juicio 🎺", meaning: "Renacimiento. Perdonarte a ti mismo y abrazar una nueva versión de tu ser." }
     ],
     mystery: [
         { card: "La Sacerdotisa 👁️", meaning: "Intuición profunda, misterios ocultos y escuchar tu voz interior." },
@@ -37,7 +48,12 @@ const tarotDB = {
         { card: "La Luna 🌙", meaning: "Ilusiones, subconsciente, sueños reveladores y enfrentar miedos." },
         { card: "El Loco 🃏", meaning: "Saltos de fe, dejar atrás lo conocido y confiar en el universo." },
         { card: "Siete de Copas ☁️", meaning: "Múltiples opciones, ilusiones y la necesidad de elegir con sabiduría." },
-        { card: "El Juicio 🎺", meaning: "Un despertar repentino, un llamado interior o una revelación." }
+        { card: "El Juicio 🎺", meaning: "Un despertar repentino, un llamado interior o una revelación." },
+        { card: "Paje de Copas 🐟", meaning: "Sincronicidades mágicas, sueños premonitorios o mensajes sutiles del universo." },
+        { card: "Diez de Espadas 🌅", meaning: "Un final abrupto, pero que marca la llegada de un nuevo y brillante amanecer." },
+        { card: "Nueve de Espadas 🦉", meaning: "Ansiedades nocturnas que solo son ilusiones. La luz disipará las sombras." },
+        { card: "Siete de Espadas 🦊", meaning: "Estrategia silenciosa. Mantén tus planes en secreto hasta que se materialicen." },
+        { card: "La Muerte 🦋", meaning: "Transformación profunda e inevitable. Cierre de un ciclo para que algo nuevo nazca." }
     ]
 };
 
@@ -52,7 +68,12 @@ const phrasesDB = {
         "El síndrome del impostor te está mintiendo. Tienes exactamente el talento que se requiere para ese salto.",
         "Una inversión de tiempo que hiciste hace meses empezará a dar dividendos sorprendentes esta semana.",
         "Alguien con influencia está observando tu trabajo en silencio. Sigue demostrando tu excelencia.",
-        "La independencia que buscas está al otro lado de esa conversación difícil que has estado evitando."
+        "La independencia que buscas está al otro lado de esa conversación difícil que has estado evitando.",
+        "Ese correo o mensaje que estás esperando llegará con una respuesta mucho mejor de lo que imaginabas.",
+        "Deja de rebajar tus precios o tu valor. Estás a punto de atraer a personas que pagan lo que realmente vales.",
+        "Un antiguo contacto laboral reaparecerá con una propuesta que cambiará tus planes para este año.",
+        "La suerte es preparación más oportunidad. Hoy ambas se cruzan en tu camino de forma espectacular.",
+        "Ese proyecto que sentías estancado acaba de destrabarse energéticamente. Notarás el avance mañana."
     ],
     love: [
         "Una persona del pasado está pensando en ti, pero el destino quiere que mires hacia adelante.",
@@ -63,7 +84,12 @@ const phrasesDB = {
         "Poner un límite sano hoy no alejará a los que valen la pena, solo filtrará a quienes no te convienen.",
         "Un encuentro que parecerá coincidencia te recordará por qué no funcionó con tus relaciones anteriores.",
         "Alguien que te ve todos los días está reuniendo el valor para decirte lo que realmente siente.",
-        "Tu mayor acto de amor propio hoy será perdonarte por decisiones que tomaste cuando sabías menos."
+        "Tu mayor acto de amor propio hoy será perdonarte por decisiones que tomaste cuando sabías menos.",
+        "La claridad que pedías respecto a esa relación confusa llegará a través de un mensaje accidental.",
+        "Deja de buscar explicaciones a su comportamiento. Su falta de acción ya es una respuesta clara.",
+        "Estás en una vibración magnética. Hoy captarás miradas en lugares donde antes pasabas desapercibido.",
+        "Alguien está manifestando tu presencia en su vida. Siente tu ausencia más de lo que admite.",
+        "El amor verdadero que buscas requiere que primero sueltes el fantasma de quien ya no está."
     ],
     healing: [
         "Es el momento perfecto para dejar ir esa preocupación que te roba el sueño y la energía.",
@@ -74,7 +100,12 @@ const phrasesDB = {
         "Descansar cuando estás agotado no es pereza, es mantenimiento vital. El universo te pide una pausa.",
         "Esa culpa que cargas por no cumplir las expectativas de otros no te pertenece. Suéltala.",
         "Hoy es un día para nutrir tu cuerpo y tu mente. Lo que consumes hoy dicta tu energía de mañana.",
-        "La validación que tanto buscas en el exterior está esperando a que te la des tú mismo."
+        "La validación que tanto buscas en el exterior está esperando a que te la des tú mismo.",
+        "Tu ansiedad está proyectando futuros que nunca ocurrirán. Vuelve al momento presente, estás a salvo.",
+        "Llorar o sentirte vulnerable hoy destapará un bloqueo energético que llevas meses cargando.",
+        "Esa persona no es tóxica, simplemente sus heridas chocan con las tuyas. Aléjate con compasión.",
+        "Tu cuerpo te está pidiendo agua y movimiento. Escúchalo antes de que te pida descanso a la fuerza.",
+        "Perdonar no significa que lo que te hicieron estuvo bien, significa que ya no permites que te controle."
     ],
     mystery: [
         "Una coincidencia numérica durante el día te confirmará que vas por el camino exacto.",
@@ -85,7 +116,12 @@ const phrasesDB = {
         "Presta atención al próximo animal inusual que se cruce en tu camino o en una imagen; trae un símbolo.",
         "Esa sensación de 'déjà vu' que experimentarás hoy es una señal de que estás alineado con tu propósito.",
         "Un secreto que ha estado oculto en tu círculo cercano está a punto de salir a la luz de forma inesperada.",
-        "Ese objeto perdido que aparecerá hoy trae consigo una energía que necesitas recuperar en tu vida."
+        "Ese objeto perdido que aparecerá hoy trae consigo una energía que necesitas recuperar en tu vida.",
+        "Cuidado con lo que hablas en voz alta hoy. Las paredes tienen oídos y el universo está tomando notas.",
+        "Revisa bien ese mensaje o correo antes de enviarlo, hay un doble sentido que se te está escapando.",
+        "Verás horas espejo repetidas (11:11, 22:22). Es la confirmación de que tus guías te están protegiendo.",
+        "Una canción antigua sonará en la calle y te dará la respuesta exacta a la pregunta que tienes en mente.",
+        "Alguien muy cercano oculta sus verdaderas intenciones detrás de una broma. Analiza bien esa sonrisa."
     ]
 };
 
@@ -103,7 +139,13 @@ const musicDB = {
             { title: "Kordhell - Murder In My Mind (Phonk)", era: "new", energy: "extreme" },
             { title: "Daft Punk - Harder, Better, Faster", era: "all", energy: "high" },
             { title: "Queen - Don't Stop Me Now", era: "old", energy: "high" },
-            { title: "Trueno, Duki - Dance Crip", era: "new", energy: "high" }
+            { title: "Trueno, Duki - Dance Crip", era: "new", energy: "high" },
+            { title: "Cris MJ - Una Noche en Medellín", era: "new", energy: "high" },
+            { title: "Bizarrap, Quevedo - Bzrp Music Sessions, Vol. 52", era: "new", energy: "extreme" },
+            { title: "Travis Scott - SICKO MODE", era: "new", energy: "high" },
+            { title: "The Strokes - Reptilia", era: "old", energy: "high" },
+            { title: "Arctic Monkeys - R U Mine?", era: "new", energy: "high" },
+            { title: "Feid - Feliz Cumpleaños Ferxxo", era: "new", energy: "medium" }
         ],
         love: [
             { title: "Sin Bandera - Entra en mi vida", era: "old", energy: "medium" },
@@ -113,7 +155,13 @@ const musicDB = {
             { title: "The Weeknd - Blinding Lights", era: "new", energy: "medium" },
             { title: "Coldplay - Yellow", era: "old", energy: "low" },
             { title: "Manu Chao - Me gustas tú", era: "all", energy: "medium" },
-            { title: "Juanes - A Dios le pido", era: "old", energy: "medium" }
+            { title: "Juanes - A Dios le pido", era: "old", energy: "medium" },
+            { title: "Mac DeMarco - My Kind of Woman", era: "new", energy: "low" },
+            { title: "Bad Bunny - Ojitos Lindos", era: "new", energy: "medium" },
+            { title: "Leonel García, Natalia Lafourcade - Hasta la Raíz", era: "new", energy: "low" },
+            { title: "Mora - LA INOCENTE", era: "new", energy: "medium" },
+            { title: "Joji - SLOW DANCING IN THE DARK", era: "new", energy: "low" },
+            { title: "Babasónicos - Putita", era: "old", energy: "medium" }
         ],
         healing: [
             { title: "Bob Marley - Three Little Birds", era: "all", energy: "low" },
@@ -123,7 +171,12 @@ const musicDB = {
             { title: "Gustavo Cerati - Adiós", era: "old", energy: "low" },
             { title: "Mac DeMarco - Chamber of Reflection", era: "new", energy: "low" },
             { title: "Radiohead - Creep", era: "old", energy: "medium" },
-            { title: "Nirvana - Something in the Way", era: "old", energy: "low" }
+            { title: "Nirvana - Something in the Way", era: "old", energy: "low" },
+            { title: "Tame Impala - Let It Happen", era: "new", energy: "medium" },
+            { title: "Los Bunkers - Nada Nuevo Bajo el Sol", era: "old", energy: "medium" },
+            { title: "Kid Cudi - Pursuit Of Happiness", era: "new", energy: "low" },
+            { title: "Red Hot Chili Peppers - Under the Bridge", era: "old", energy: "low" },
+            { title: "El Mató a un Policía Motorizado - El Tesoro", era: "new", energy: "medium" }
         ],
         mystery: [
             { title: "Molchat Doma - Sudno", era: "new", energy: "low" },
@@ -133,7 +186,12 @@ const musicDB = {
             { title: "Massive Attack - Teardrop", era: "old", energy: "low" },
             { title: "Crystal Castles - Crimewave", era: "new", energy: "medium" },
             { title: "Gorillaz - Clint Eastwood", era: "old", energy: "medium" },
-            { title: "Billie Eilish - bury a friend", era: "new", energy: "low" }
+            { title: "Billie Eilish - bury a friend", era: "new", energy: "low" },
+            { title: "Depresión Sonora - Ya No Hay Verano", era: "new", energy: "medium" },
+            { title: "Joy Division - Love Will Tear Us Apart", era: "old", energy: "medium" },
+            { title: "Kavinsky - Nightcall", era: "new", energy: "low" },
+            { title: "Soda Stereo - En la Ciudad de la Furia", era: "old", energy: "low" },
+            { title: "Mareux - The Perfect Girl", era: "new", energy: "low" }
         ]
     },
     // Música para MUJERES (energía femenina, empoderamiento, sensibilidad)
@@ -148,7 +206,12 @@ const musicDB = {
             { title: "Bad Bunny - Ojitos Lindos", era: "new", energy: "medium" },
             { title: "Katy Perry - Roar", era: "old", energy: "high" },
             { title: "Lady Gaga - Born This Way", era: "old", energy: "high" },
-            { title: "Princesa Alba - Convéncete", era: "new", energy: "medium" }
+            { title: "Princesa Alba - Convéncete", era: "new", energy: "medium" },
+            { title: "Karol G - PROVENZA", era: "new", energy: "high" },
+            { title: "Nathy Peluso - DELITO", era: "new", energy: "high" },
+            { title: "Emilia - No_se_ve.mp3", era: "new", energy: "high" },
+            { title: "Doja Cat - Woman", era: "new", energy: "medium" },
+            { title: "Rihanna - Bitch Better Have My Money", era: "new", energy: "extreme" }
         ],
         love: [
             { title: "Aventura - Obsesión", era: "old", energy: "medium" },
@@ -158,7 +221,12 @@ const musicDB = {
             { title: "The Cure - Friday I'm In Love", era: "old", energy: "medium" },
             { title: "Soda Stereo - Trátame Suavemente", era: "old", energy: "low" },
             { title: "Billie Eilish - lovely", era: "new", energy: "low" },
-            { title: "Lana Del Rey - Summertime Sadness", era: "new", energy: "low" }
+            { title: "Lana Del Rey - Summertime Sadness", era: "new", energy: "low" },
+            { title: "Kali Uchis - Telepatía", era: "new", energy: "low" },
+            { title: "Julieta Venegas - Eres Para Mí", era: "old", energy: "medium" },
+            { title: "Taylor Swift - Lover", era: "new", energy: "low" },
+            { title: "SZA - Snooze", era: "new", energy: "low" },
+            { title: "Girl in Red - we fell in love in october", era: "new", energy: "low" }
         ],
         healing: [
             { title: "Violeta Parra - Gracias a la Vida", era: "all", energy: "low" },
@@ -168,7 +236,12 @@ const musicDB = {
             { title: "Los Tres - Déjate Caer", era: "old", energy: "medium" },
             { title: "Joji - Glimpse of Us", era: "new", energy: "low" },
             { title: "Adele - Someone Like You", era: "old", energy: "low" },
-            { title: "Sia - Chandelier", era: "new", energy: "medium" }
+            { title: "Sia - Chandelier", era: "new", energy: "medium" },
+            { title: "Lana Del Rey - Doin' Time", era: "new", energy: "low" },
+            { title: "Phoebe Bridgers - Motion Sickness", era: "new", energy: "low" },
+            { title: "Mitski - Washing Machine Heart", era: "new", energy: "medium" },
+            { title: "Clairo - Sofia", era: "new", energy: "low" },
+            { title: "Natalia Lafourcade - Hasta la Raíz", era: "new", energy: "medium" }
         ],
         mystery: [
             { title: "M83 - Midnight City", era: "all", energy: "medium" },
@@ -178,7 +251,11 @@ const musicDB = {
             { title: "Grimes - Oblivion", era: "new", energy: "medium" },
             { title: "Björk - Hyperballad", era: "old", energy: "medium" },
             { title: "Florence + The Machine - Dog Days Are Over", era: "old", energy: "high" },
-            { title: "Lana Del Rey - Young and Beautiful", era: "new", energy: "low" }
+            { title: "Lana Del Rey - Young and Beautiful", era: "new", energy: "low" },
+            { title: "Boy Harsher - Pain", era: "new", energy: "medium" },
+            { title: "Javiera Mena - Espada", era: "new", energy: "medium" },
+            { title: "Melanie Martinez - Play Date", era: "new", energy: "medium" },
+            { title: "The xx - Intro", era: "new", energy: "low" }
         ]
     },
     // Música NEUTRAL (para cuando no se detecta género)
@@ -187,22 +264,30 @@ const musicDB = {
             { title: "Daft Punk - Harder, Better, Faster", era: "all", energy: "high" },
             { title: "Pharrell Williams - Happy", era: "new", energy: "high" },
             { title: "Justin Timberlake - CAN'T STOP THE FEELING!", era: "new", energy: "high" },
-            { title: "Bruno Mars - Uptown Funk", era: "new", energy: "high" }
+            { title: "Bruno Mars - Uptown Funk", era: "new", energy: "high" },
+            { title: "MGMT - Kids", era: "new", energy: "high" },
+            { title: "Gorillaz - Feel Good Inc.", era: "old", energy: "medium" }
         ],
         love: [
             { title: "Ed Sheeran - Perfect", era: "new", energy: "low" },
             { title: "John Legend - All of Me", era: "new", energy: "low" },
-            { title: "The Beatles - Here Comes The Sun", era: "old", energy: "medium" }
+            { title: "The Beatles - Here Comes The Sun", era: "old", energy: "medium" },
+            { title: "Frank Ocean - Pink + White", era: "new", energy: "low" },
+            { title: "Rex Orange County - Loving Is Easy", era: "new", energy: "medium" }
         ],
         healing: [
             { title: "Bob Marley - Three Little Birds", era: "all", energy: "low" },
             { title: "Louis Armstrong - What a Wonderful World", era: "old", energy: "low" },
-            { title: "Enya - Orinoco Flow", era: "old", energy: "low" }
+            { title: "Enya - Orinoco Flow", era: "old", energy: "low" },
+            { title: "Fleetwood Mac - Dreams", era: "old", energy: "medium" },
+            { title: "Cigarettes After Sex - Apocalypse", era: "new", energy: "low" }
         ],
         mystery: [
             { title: "M83 - Midnight City", era: "all", energy: "medium" },
             { title: "Kavinsky - Nightcall", era: "all", energy: "low" },
-            { title: "Gorillaz - Clint Eastwood", era: "old", energy: "medium" }
+            { title: "Gorillaz - Clint Eastwood", era: "old", energy: "medium" },
+            { title: "Beach House - Space Song", era: "new", energy: "low" },
+            { title: "Tame Impala - The Less I Know The Better", era: "new", energy: "medium" }
         ]
     }
 };

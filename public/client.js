@@ -31,24 +31,48 @@ const dateInput = document.getElementById('dateInput');
 let currentReading = null;
 let userGender = null; // Para personalización musical
 
-// Detección de género basada en el nombre (simple pero efectiva)
+// Detección de género avanzada (Heurística + Excepciones)
 function detectGender(name) {
     if (!name || name.length < 2) return 'neutral';
     
-    const femaleNames = ['ana', 'maría', 'luisa', 'carolina', 'sofía', 'valentina', 'isabella', 'camila', 'valeria', 'daniela', 'paula', 'lucia', 'martina', 'julia', 'emma', 'catalina', 'fernanda', 'gabriela', 'alejandra', 'victoria'];
-    const maleNames = ['juan', 'carlos', 'luis', 'pedro', 'javier', 'miguel', 'diego', 'andrés', 'pablo', 'daniel', 'alejandro', 'ricardo', 'jorge', 'raúl', 'sergio', 'fernando', 'gabriel', 'roberto', 'eduardo', 'sebastián'];
+    // 1. Limpiar el nombre: tomar solo el primer nombre, minúsculas, y quitar tildes
+    const cleanName = name.trim().split(' ')[0].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
-    const lowerName = name.toLowerCase();
+    // 2. Diccionario de excepciones (Nombres que rompen las reglas de terminación)
+    const femaleExceptions = new Set([
+        'carmen', 'belen', 'luz', 'paz', 'beatriz', 'ines', 'raquel', 'ruth', 'ester', 'abigail',
+        'rocio', 'consuelo', 'rosario', 'amparo', 'genesis', 'gladys', 'doris', 'miriam', 'elizabeth',
+        'maite', 'guadalupe', 'irene', 'matilde', 'dulce', 'isabel', 'mar', 'sol', 'ariadna'
+    ]);
     
-    // Buscar coincidencias exactas o parciales
-    for (let female of femaleNames) {
-        if (lowerName.includes(female) || female.includes(lowerName)) return 'female';
-    }
+    const maleExceptions = new Set([
+        'jose', 'juan', 'luis', 'raul', 'javier', 'manuel', 'miguel', 'gabriel', 'daniel', 'david',
+        'carlos', 'lucas', 'tomas', 'matias', 'nicolas', 'elias', 'jesus', 'marcos', 'andres',
+        'felipe', 'jorge', 'vicente', 'enrique', 'eduardo', 'roberto', 'diego', 'hugo', 'borja',
+        'bautista', 'luca', 'alexis', 'ariel', 'rene', 'noe'
+    ]);
     
-    for (let male of maleNames) {
-        if (lowerName.includes(male) || male.includes(lowerName)) return 'male';
-    }
+    // 3. Verificación exacta primero (para atrapar las excepciones)
+    if (femaleExceptions.has(cleanName)) return 'female';
+    if (maleExceptions.has(cleanName)) return 'male';
     
+    // 4. Reglas heurísticas del idioma español
+    const lastChar = cleanName.slice(-1);
+    const lastTwoChars = cleanName.slice(-2);
+    
+    // Regla de oro femenina: casi todo lo que termina en 'a' es mujer (ya filtramos Lucas, Tomás, etc.)
+    if (lastChar === 'a') return 'female';
+    
+    // Regla de oro masculina: casi todo lo que termina en 'o' es hombre (ya filtramos Rocío, Consuelo, etc.)
+    if (lastChar === 'o') return 'male';
+    
+    // Terminaciones comunes masculinas: os, us, as (ej. Marcos, Jesus, Matias)
+    if (['os', 'us', 'as'].includes(lastTwoChars)) return 'male';
+    
+    // Terminaciones en consonante comunes en hombres (r, n, l, s, d) (ej. Hector, Cristian, Fidel, Ulises, David)
+    if (['r', 'n', 'l', 's', 'd'].includes(lastChar)) return 'male';
+    
+    // Si el nombre es muy extraño y no cae en nada de lo anterior, usamos neutral
     return 'neutral';
 }
 
@@ -327,10 +351,13 @@ function shareToWhatsApp() {
         const urlSitio = "https://cosmos-astral.onrender.com"; 
 
         // Construir mensaje aplicando removeEmojis() a variables dinámicas
-        const message = `Mira mi resultado en Cosmos Astral! Mi nombre es ${removeEmojis(currentReading.name?.toUpperCase() || 'TI')}. ` +
-            `Mi zodiaco es ${removeEmojis(currentReading.zodiac)}, mi luna es ${removeEmojis(currentReading.moon)}, ` +
-            `mi tarot es ${removeEmojis(currentReading.tarotName)} con el mensaje: "${removeEmojis(currentReading.phrase)}". ` +
-            `Mi vibra musical es ${removeEmojis(currentReading.music)}. ` +
+        const message = `¡Mira mi resultado en Cosmos Astral!\n\n` +
+            `Nombre: ${removeEmojis(currentReading.name?.toUpperCase() || 'TI')}\n` +
+            `Zodiaco: ${removeEmojis(currentReading.zodiac)}\n` +
+            `Luna: ${removeEmojis(currentReading.moon)}\n` +
+            `Tarot: ${removeEmojis(currentReading.tarotName)}\n` +
+            `Mensaje: "${removeEmojis(currentReading.phrase)}"\n` +
+            `Vibra musical: ${removeEmojis(currentReading.music)}\n\n` +
             `Descubre tu destino en: ${urlSitio}`;
         
         // Encoding robusto para Instagram WebView
